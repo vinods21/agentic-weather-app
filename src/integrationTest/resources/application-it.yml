@@ -1,0 +1,24 @@
+# Profile "it": integration tests against the ALREADY RUNNING Docker Compose services
+# (start them with `scripts/test-env.sh up`). Tests never start or stop containers.
+#
+# Isolation: every Gradle run gets a random `it.run-id` (see build.gradle.kts), which gives
+#   - a private Postgres schema  it_<run-id>  (created and migrated by Flyway, dropped after the run)
+#   - a private Redis key prefix it:<run-id>  (cleaned after each test and after the run)
+it:
+  run-id: local
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:weather}?currentSchema=it_${it.run-id}
+  flyway:
+    schemas: it_${it.run-id}
+    default-schema: it_${it.run-id}
+    create-schemas: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+weather:
+  cache:
+    key-prefix: it:${it.run-id}
