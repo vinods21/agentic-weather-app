@@ -70,8 +70,8 @@ For round = 1..2:
 3. If the verdict is **READY FOR HUMAN MERGE**, stop the loop.
 4. If it's **CHANGES NEEDED** and round < 2: agent `developer`: "Fix PR #<n> review comments for
    feature <slug>. Read them with gh api repos/{owner}/{repo}/pulls/<n>/comments and /reviews."
-   If tests changed or ACs were affected, run `tester` again. Then `git push` (on feature/<slug>)
-   and go to the next round.
+   If tests changed or ACs were affected, run `tester` again. Then `git push origin feature/<slug>`
+   (always name the branch; a bare `git push` isn't pre-approved) and go to the next round.
 5. If it's still CHANGES NEEDED after round 2, stop and list the open points.
 
 ## 7. Stop
