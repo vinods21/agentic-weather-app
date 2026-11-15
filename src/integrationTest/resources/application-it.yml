@@ -22,3 +22,12 @@ spring:
 weather:
   cache:
     key-prefix: it:${it.run-id}
+  # Literals, not placeholders (ADR 0005, AC-5): exported .env variables can't switch ITs to the
+  # real upstream. Tests that exercise the Open-Meteo adapter opt in via @DynamicPropertySource.
+  provider:
+    type: stub
+    connect-timeout: 1s
+    read-timeout: 1s
+    open-meteo:
+      geocoding-base-url: http://127.0.0.1:9
+      forecast-base-url: http://127.0.0.1:9
