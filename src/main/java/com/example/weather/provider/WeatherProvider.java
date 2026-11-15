@@ -35,6 +35,20 @@ public interface WeatherProvider {
     }
 
     /**
+     * Current conditions at an already resolved, stored location, without geocoding (ADR 0012).
+     *
+     * <p>{@code now} has the same meaning as in {@link #currentAt(String, Instant)}. The returned
+     * conditions describe the location that was passed in. The failure contract is the same as
+     * {@link #current(String)}: {@link LocationNotFoundException} when the adapter has no data for
+     * the location, {@link WeatherProviderUnavailableException} for any upstream problem. The
+     * default falls back to resolving the stored canonical name through
+     * {@link #currentAt(String, Instant)}; adapters that can look up by coordinates override it.
+     */
+    default ObservedConditions currentAtLocation(Location location, Instant now) {
+        return currentAt(location.name(), now);
+    }
+
+    /**
      * Resolves {@code city} to a location only (ADR 0011). Callers pass the city as the user sent
      * it (stripped), never a pre-normalised form. The failure contract is the same as
      * {@link #current(String)}: an unknown city throws {@link LocationNotFoundException}, an
