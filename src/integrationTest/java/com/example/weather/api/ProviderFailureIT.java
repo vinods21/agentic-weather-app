@@ -47,7 +47,8 @@ class ProviderFailureIT extends ApiIntegrationTestBase {
         ResponseEntity<String> res = get("/api/v1/weather/current?city=London", Map.of("X-Request-Id", id));
 
         assertUpstreamUnavailable(res, id);
-        assertThat(warnLinesContaining(output, id)).as("WARN line with request id").isNotBlank();
+        assertThat(warnLinesContaining(output, id)).as("WARN line with request id").isNotBlank()
+                .as("provider message is not logged").doesNotContain("simulated upstream timeout");
     }
 
     @Test
@@ -60,7 +61,8 @@ class ProviderFailureIT extends ApiIntegrationTestBase {
         ResponseEntity<String> res = get("/api/v1/weather/forecast?city=London", Map.of("X-Request-Id", id));
 
         assertUpstreamUnavailable(res, id);
-        assertThat(warnLinesContaining(output, id)).as("WARN line with request id").isNotBlank();
+        assertThat(warnLinesContaining(output, id)).as("WARN line with request id").isNotBlank()
+                .as("provider message is not logged").doesNotContain("simulated upstream timeout");
     }
 
     @Test

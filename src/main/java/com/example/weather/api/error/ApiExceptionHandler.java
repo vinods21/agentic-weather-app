@@ -88,8 +88,11 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> handleUpstreamUnavailable(
             WeatherProviderUnavailableException ex, HttpServletRequest request) throws Exception {
         guard(ex, request);
-        log.warn("Weather provider unavailable requestId={} path={} error={}: {}",
-                RequestIds.current(request), ApiPaths.path(request), ex.getClass().getName(), ex.getMessage());
+        // Only class names: provider messages may carry upstream URLs or credentials, so they are
+        // never logged here (adapters log their own sanitised details).
+        String cause = ex.getCause() == null ? "none" : ex.getCause().getClass().getName();
+        log.warn("Weather provider unavailable requestId={} path={} error={} cause={}",
+                RequestIds.current(request), ApiPaths.path(request), ex.getClass().getName(), cause);
         return ProblemFactory.build(ErrorCode.UPSTREAM_UNAVAILABLE, UPSTREAM_DETAIL, request, null);
     }
 

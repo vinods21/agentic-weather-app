@@ -9,7 +9,11 @@ import com.example.weather.provider.WeatherProviderUnavailableException;
 import java.net.URI;
 import java.util.List;
 import java.util.Set;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -110,6 +114,26 @@ class ApiExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
         assertThat(response.getBody().getDetail()).doesNotContain("timeout");
         assertThat(response.getBody().getProperties()).containsEntry("code", "UPSTREAM_UNAVAILABLE");
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("AC-13 (unit): the 503 WARN line names the exception and cause classes, never the provider message")
+    void upstreamUnavailableWarnLogsNoProviderMessage(CapturedOutput output) throws Exception {
+        handler.handleUpstreamUnavailable(
+                new WeatherProviderUnavailableException("GET https://upstream.example/data?appid=SECRET-KEY failed",
+                        new java.io.IOException("connect to https://upstream.example/data?appid=SECRET-KEY")),
+                apiRequest("/api/v1/weather/current"));
+
+        String warn = output.getAll().lines()
+                .filter(l -> l.contains("WARN") && l.contains("ui-abc-123"))
+                .findFirst().orElseThrow();
+        assertThat(warn)
+                .contains("error=" + WeatherProviderUnavailableException.class.getName())
+                .contains("cause=java.io.IOException")
+                .doesNotContain("SECRET-KEY")
+                .doesNotContain("upstream.example");
+        assertThat(output.getAll()).doesNotContain("SECRET-KEY");
     }
 
     @Test
