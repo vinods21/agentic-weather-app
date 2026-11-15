@@ -181,6 +181,24 @@ class ApiExceptionHandlerTest {
     }
 
     @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("AC-13 (unit, edge): a 503 without a cause logs cause=none and still no provider message")
+    void upstreamUnavailableWithoutCauseLogsNone(CapturedOutput output) throws Exception {
+        handler.handleUpstreamUnavailable(
+                new WeatherProviderUnavailableException("token=SECRET-NO-CAUSE expired", null),
+                apiRequest("/api/v1/weather/forecast"));
+
+        String warn = output.getAll().lines()
+                .filter(l -> l.contains("WARN") && l.contains("ui-abc-123"))
+                .findFirst().orElseThrow();
+        assertThat(warn)
+                .contains("path=/api/v1/weather/forecast")
+                .contains("error=" + WeatherProviderUnavailableException.class.getName())
+                .contains("cause=none");
+        assertThat(output.getAll()).doesNotContain("SECRET-NO-CAUSE");
+    }
+
+    @Test
     void unexpectedErrorHidesMessageAndClass() throws Exception {
         ResponseEntity<ProblemDetail> response = handler.handleUnexpected(
                 new IllegalStateException("boom-secret"), apiRequest("/api/v1/weather/current"));

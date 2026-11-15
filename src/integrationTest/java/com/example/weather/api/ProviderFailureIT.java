@@ -66,6 +66,26 @@ class ProviderFailureIT extends ApiIntegrationTestBase {
     }
 
     @Test
+    @DisplayName("AC-13 (edge): a provider message and cause carrying a credential-bearing URL leak into neither the 503 body nor any log line")
+    void ac13_edge_credentialsInProviderMessageAreNotLogged(CapturedOutput output) {
+        String secret = "SECRET-" + UUID.randomUUID();
+        String url = "https://upstream.invalid/data?appid=" + secret;
+        doThrow(new WeatherProviderUnavailableException("GET " + url + " timed out",
+                new java.net.SocketTimeoutException("connect to " + url)))
+                .when(provider).current(anyString());
+        String id = uniqueId("it-ac13-secret");
+
+        ResponseEntity<String> res = get("/api/v1/weather/current?city=London", Map.of("X-Request-Id", id));
+
+        assertUpstreamUnavailable(res, id);
+        assertThat(res.getBody()).doesNotContain(secret).doesNotContain("upstream.invalid");
+        assertThat(warnLinesContaining(output, id))
+                .contains("error=" + WeatherProviderUnavailableException.class.getName())
+                .contains("cause=java.net.SocketTimeoutException");
+        assertThat(output.getAll()).as("no log line carries the credential").doesNotContain(secret);
+    }
+
+    @Test
     @DisplayName("AC-14: unexpected exception is 500 INTERNAL_ERROR without leaking details; ERROR log has id and stack trace")
     void ac14_unexpectedErrorIsSanitised(CapturedOutput output) {
         doThrow(new RuntimeException("boom-secret")).when(provider).current(anyString());
