@@ -1,8 +1,8 @@
 # saved-favourite-locations: SDLC status
 Request: Saved favourite locations: CRUD API for saved cities, stored in Postgres via a Flyway migration.
-Branch: feature/saved-favourite-locations · PR: (none yet)
+Branch: feature/saved-favourite-locations · PR: #6 https://github.com/vinods21/agentic-weather-app/pull/6
 ## Phases
-- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [ ] pr  - [ ] review round 1  - [ ] review round 2
+- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [ ] review round 1  - [ ] review round 2
 ## Log
 - 2026-11-15 pm: requirements.md written (AC-1..AC-32)
 - 2026-11-15 architect: design.md written; ADRs 0008 (JDBC persistence), 0009 (X-Client-Id), 0010 (write conventions + CORS, amends 0003), 0011 (WeatherProvider#locate); overview updated
@@ -19,3 +19,4 @@ Branch: feature/saved-favourite-locations · PR: (none yet)
 - `ClientId` validates in its compact constructor; `parse` delegates, so no unvalidated `ClientId` can exist.
 - The delegation check `CacheKeys.normaliseCity == CityNames.normalise` lives in `cache.CacheKeysNormalisationTest` (same package, as `normaliseCity` is package-private); `CityNamesTest` covers the AC-11 cases.
 - Spec notes: a body-less `UnsupportedMediaType` (415) response component is referenced by POST/PATCH/PUT; `FavouriteId` is a path-level parameter of `/api/v1/favourites/{id}`.
+- 2026-11-15 orchestrator: re-checked build + it (394 IT, 0 fail), no Testcontainers, no build-file or V1 changes, no leftover it_* schemas or it:* keys; pushed and opened PR #6.
