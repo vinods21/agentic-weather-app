@@ -4,7 +4,8 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
- * Settings of {@code GET /api/v1/favourites/weather} ({@code weather.favourites.weather.*}, ADR 0013).
+ * Settings of {@code GET /api/v1/favourites/weather} ({@code weather.favourites.weather.*}, ADR 0013),
+ * which apply per request to {@code GET /api/v1/favourites/forecast} as well (ADR 0016 §2).
  * {@code max-concurrency} (default {@value #DEFAULT_MAX_CONCURRENCY}, {@value #MIN_CONCURRENCY}..
  * {@value #MAX_CONCURRENCY}) bounds the upstream calls in flight per request; {@code timeout}
  * (default 5s, 1s..30s) is the overall time budget of a request. A value out of range fails startup
