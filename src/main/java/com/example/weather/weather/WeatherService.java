@@ -53,7 +53,19 @@ public class WeatherService {
 
     public Forecast forecast(String city, Units units, int days) {
         LocalDate start = LocalDate.now(clock.withZone(ZoneOffset.UTC));
-        LocationForecast f = provider.forecast(city, start, days);
+        return convert(provider.forecast(city, start, days), units);
+    }
+
+    /**
+     * Daily forecast at a stored location, without geocoding (ADR 0015). {@code startDate} is the
+     * caller's UTC date from the service clock, so one request can share it across items; this
+     * method never reads the clock.
+     */
+    public Forecast forecastAt(Location location, Units units, LocalDate startDate, int days) {
+        return convert(provider.forecastAtLocation(location, startDate, days), units);
+    }
+
+    private static Forecast convert(LocationForecast f, Units units) {
         List<DailyForecast> converted = f.days().stream()
                 .map(d -> new DailyForecast(
                         d.date(),
