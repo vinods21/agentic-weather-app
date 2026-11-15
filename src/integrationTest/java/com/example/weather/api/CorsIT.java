@@ -60,9 +60,9 @@ class CorsIT extends ApiIntegrationTestBase {
     }
 
     @Test
-    @DisplayName("AC-18 (edge): preflight for a non-allowed method (DELETE) from the allowed origin is rejected")
+    @DisplayName("AC-18 (edge): preflight for a non-allowed method (TRACE) from the allowed origin is rejected")
     void ac18_edge_disallowedMethodRejected() {
-        ResponseEntity<String> res = preflight(ALLOWED, "DELETE");
+        ResponseEntity<String> res = preflight(ALLOWED, "TRACE");
 
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(res.getHeaders().containsKey(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN)).isFalse();

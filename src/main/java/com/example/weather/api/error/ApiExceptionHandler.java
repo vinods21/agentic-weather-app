@@ -1,6 +1,8 @@
 package com.example.weather.api.error;
 
 import com.example.weather.api.ApiPaths;
+import com.example.weather.api.ClientId;
+import com.example.weather.api.InvalidClientIdException;
 import com.example.weather.api.RequestIds;
 import com.example.weather.favourites.FavouriteAlreadyExistsException;
 import com.example.weather.favourites.FavouriteNotFoundException;
@@ -96,6 +98,15 @@ public class ApiExceptionHandler {
         guard(ex, request);
         return ProblemFactory.build(ErrorCode.VALIDATION_FAILED, VALIDATION_DETAIL, request,
                 List.of(new FieldErrorDto(BODY_FIELD, UNREADABLE_BODY)));
+    }
+
+    /** A missing or ill-formed X-Client-Id header (ADR 0009 §2); the value is never echoed. */
+    @ExceptionHandler(InvalidClientIdException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidClientId(
+            InvalidClientIdException ex, HttpServletRequest request) throws Exception {
+        guard(ex, request);
+        return ProblemFactory.build(ErrorCode.VALIDATION_FAILED, VALIDATION_DETAIL, request,
+                List.of(new FieldErrorDto(ClientId.HEADER, ClientId.MESSAGE)));
     }
 
     /** A reorder whose ids don't describe the client's list; the message is one of the fixed texts. */
