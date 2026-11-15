@@ -1,8 +1,8 @@
 # redis-weather-caching: SDLC status
 Request: Redis caching for weather provider responses
-Branch: feature/redis-weather-caching · PR: (none yet)
+Branch: feature/redis-weather-caching · PR: #5 https://github.com/vinods21/agentic-weather-app/pull/5
 ## Phases
-- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [ ] pr  - [ ] review round 1  - [ ] review round 2
+- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [ ] review round 1  - [ ] review round 2
 ## Log
 - 2026-11-15 pm: requirements.md written (AC-1..AC-25)
 - 2026-11-15 architect: design.md written; ADR 0007 (Redis cache, fail open, Redis timeouts); overview.md updated
@@ -18,3 +18,4 @@ Branch: feature/redis-weather-caching · PR: (none yet)
 - `CacheCodec` also disables Jackson scalar coercion and `ACCEPT_FLOAT_AS_INT` (so `"81"` or `81.5` for an int field is unreadable) and requires `windSpeed >= 0` (the mapper's invariant).
 - Existing-test setup change not listed in the design: `WeatherProviderSelectionIT` (an `ApplicationContextRunner` with only `WeatherProviderConfiguration`) now registers `WeatherCache.disabled()` as a bean, since the provider factory takes a `WeatherCache`. No assertion changed (AC-25).
 - Test-support classes from design step 6 (`MutableClock`, `CachingIntegrationTestBase`, `IsolatedCacheStore`, `SilentRedisServer`) were not added; they belong with the tester's step 7-8 ITs.
+- 2026-11-15 orchestrator: re-checked build + it (234 IT, 0 fail), no Testcontainers, no build-file/openapi/migration changes, no leftover it:* keys; pushed and opened PR #5.
