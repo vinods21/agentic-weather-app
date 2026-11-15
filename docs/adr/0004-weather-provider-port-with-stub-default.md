@@ -20,8 +20,8 @@ simulate upstream failure.
   Sydney AU), matched case-insensitively. Every other city is "not found".
 - The service owns time (`Clock` bean). Adapters receive the forecast `startDate` rather than
   reading the clock.
-- Tests simulate provider failures by replacing the bean (`@MockitoBean`). No test-only code goes
-  into the stub.
+- Tests simulate provider failures by overriding the bean (`@MockitoBean`, or `@MockitoSpyBean`
+  so that calls a test does not stub keep the stub's behaviour). No test-only code goes into the stub.
 
 ## Consequences
 - The contract, validation and error mapping are fully testable without network access.
