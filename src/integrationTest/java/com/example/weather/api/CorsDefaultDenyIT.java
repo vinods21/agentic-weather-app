@@ -33,6 +33,21 @@ class CorsDefaultDenyIT extends ApiIntegrationTestBase {
     }
 
     @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"POST", "PATCH", "PUT", "DELETE"})
+    @DisplayName("AC-29: with an empty allow-list a favourites preflight for a write method is rejected for every origin (403, no ACAO)")
+    void ac29_emptyAllowListDeniesFavouritesPreflight(String method) {
+        for (String origin : new String[] {"http://ui.example", "http://evil.example"}) {
+            ResponseEntity<String> res = exchange(HttpMethod.OPTIONS, "/api/v1/favourites/" + java.util.UUID.randomUUID(),
+                    Map.of(HttpHeaders.ORIGIN, origin,
+                            HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, method,
+                            HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "content-type, x-client-id"));
+
+            assertThat(res.getStatusCode()).as(origin).isEqualTo(HttpStatus.FORBIDDEN);
+            assertThat(res.getHeaders().containsKey(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN)).as(origin).isFalse();
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"http://localhost:5173", "http://evil.example"})
     @DisplayName("AC-18 (edge): an actual cross-origin GET is rejected without ACAO when nothing is allowed")
     void ac18_edge_actualCrossOriginGetRejected(String origin) {
