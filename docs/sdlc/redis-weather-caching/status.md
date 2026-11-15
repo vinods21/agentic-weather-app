@@ -8,6 +8,7 @@ Branch: feature/redis-weather-caching · PR: (none yet)
 - 2026-11-15 architect: design.md written; ADR 0007 (Redis cache, fail open, Redis timeouts); overview.md updated
 - 2026-11-15 orchestrator: developer stopped by usage limit after 5 feat/refactor commits (design steps 1-5). Step 6 (IntegrationTestBase cleanup protected, RealProviderCurrentIT#ac7 setup) is uncommitted in the working tree; build/it not yet verified. Resume: developer continues from step 6, then tester.
 - 2026-11-15 developer: design steps 1-6 implemented (5466f66..f856324); ./gradlew build green; scripts/test-env.sh it green (188 ITs, caching enabled); openapi-v1.json unchanged. Steps 7-8 (new AC-mapped ITs and their support classes) left to the tester.
+- 2026-11-15 tester: test-report.md written; IT support + 46 new AC-mapped ITs (com.example.weather.cache) + 12 unit edge cases (6bed2a6..f1df6c6); ./gradlew test 398/0, scripts/test-env.sh it 234/0; AC-1..AC-25 PASS; no product defects; timing-sensitive: AC-13/15/19/21.
 
 ## Deviations from design
 - `OpenMeteoWeatherProviderTest` new cases live in a separate class `OpenMeteoWeatherProviderCachingTest` (same package) so the existing class is untouched.
