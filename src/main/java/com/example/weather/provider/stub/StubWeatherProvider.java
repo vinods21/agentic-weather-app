@@ -17,6 +17,8 @@ import com.example.weather.weather.CurrentConditions;
 import com.example.weather.weather.DailyForecast;
 import com.example.weather.weather.Location;
 import com.example.weather.weather.LocationForecast;
+import com.example.weather.weather.ObservedConditions;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -108,6 +110,21 @@ public class StubWeatherProvider implements WeatherProvider {
     @Override
     public Location locate(String city) {
         return lookup(city).current().location();
+    }
+
+    /**
+     * The fixed conditions of the city whose location has exactly these coordinates, observed at
+     * {@code now} (ADR 0012 §4). Name and country are ignored; other coordinates are "not found".
+     */
+    @Override
+    public ObservedConditions currentAtLocation(Location location, Instant now) {
+        for (CityData data : CITIES.values()) {
+            Location fixed = data.current().location();
+            if (fixed.latitude() == location.latitude() && fixed.longitude() == location.longitude()) {
+                return new ObservedConditions(data.current(), now);
+            }
+        }
+        throw new LocationNotFoundException(location.name());
     }
 
     @Override

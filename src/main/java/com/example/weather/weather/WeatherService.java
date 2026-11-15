@@ -26,7 +26,18 @@ public class WeatherService {
 
     public CurrentWeather current(String city, Units units) {
         Instant now = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS);
-        ObservedConditions observed = provider.currentAt(city, now);
+        return convert(provider.currentAt(city, now), units);
+    }
+
+    /**
+     * Current weather at a stored location, without geocoding (ADR 0012). {@code now} is the
+     * caller's service-clock instant truncated to seconds, so one request can share it across items.
+     */
+    public CurrentWeather currentAt(Location location, Units units, Instant now) {
+        return convert(provider.currentAtLocation(location, now), units);
+    }
+
+    private static CurrentWeather convert(ObservedConditions observed, Units units) {
         CurrentConditions c = observed.conditions();
         return new CurrentWeather(
                 c.location(),

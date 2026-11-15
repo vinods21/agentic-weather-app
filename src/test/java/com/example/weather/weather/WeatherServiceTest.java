@@ -99,4 +99,17 @@ class WeatherServiceTest {
             assertThat(f.precipitationProbability()).isEqualTo(m.precipitationProbability());
         }
     }
+
+    @Test
+    @DisplayName("AC-1/AC-3: currentAt(location) converts like current(city) and uses the given instant")
+    void currentAtLocationConvertsLikeCurrent() {
+        Location paris = new StubWeatherProvider().locate("Paris");
+        Instant requestNow = Instant.parse("2026-11-15T23:30:45Z");
+
+        for (Units units : Units.values()) {
+            CurrentWeather byCity = service.current("Paris", units);
+            CurrentWeather byLocation = service.currentAt(paris, units, requestNow);
+            assertThat(byLocation).isEqualTo(byCity);
+        }
+    }
 }

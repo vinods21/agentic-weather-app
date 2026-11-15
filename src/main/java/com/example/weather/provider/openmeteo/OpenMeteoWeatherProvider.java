@@ -113,7 +113,19 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
     @Override
     public ObservedConditions currentAt(String city, Instant now) {
         WeatherCache.Session session = cache.session();
-        Location location = geocode(session, city);
+        return currentAt(session, geocode(session, city), now);
+    }
+
+    /**
+     * Current conditions at a stored location (ADR 0012 §2): no geocoding, the same {@code current}
+     * cache entry as {@link #currentAt(String, Instant)}, and one forecast call on a miss.
+     */
+    @Override
+    public ObservedConditions currentAtLocation(Location location, Instant now) {
+        return currentAt(cache.session(), location, now);
+    }
+
+    private ObservedConditions currentAt(WeatherCache.Session session, Location location, Instant now) {
         Optional<CurrentEntry> cached = session.current(location);
         if (cached.isPresent()) {
             return new ObservedConditions(cached.get().conditions(), cached.get().fetchedAt());

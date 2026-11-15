@@ -1,0 +1,20 @@
+# weather-for-all-favourites: SDLC status
+Request: Weather for all favourites: one endpoint that returns current weather for every saved favourite of a client.
+Branch: feature/weather-for-all-favourites · PR: #7 https://github.com/vinods21/agentic-weather-app/pull/7
+## Phases
+- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [x] review round 1  - [ ] review round 2
+## Log
+- 2026-11-15 pm: requirements.md written (AC-1..AC-24)
+- 2026-11-15 architect: design.md written; ADRs 0012 (currentAtLocation, amends 0011), 0013 (bounded fan-out/deadline/MDC), 0014 (per-item errors, amends 0003); overview.md updated
+- 2026-11-15 developer: implemented design steps 1-7 (currentAtLocation, WeatherService#currentAt, BoundedFanOut, FavouritesWeatherProperties + config, FavouriteWeatherService, GET /api/v1/favourites/weather, OpenAPI) with unit tests; ./gradlew build green; scripts/test-env.sh it green (394 existing ITs); no migration; AC-mapped ITs (steps 8-9) left to the tester
+- 2026-11-15 tester: design steps 8-9 done (7 FavouritesWeather*IT classes, 47 ITs; support.FavouriteRows, support.InFlightResponder; 17 edge unit tests); unit 576/576, IT 441/441 (2 green full runs after fixing a Postgres connection-limit issue in the new ITs with @DirtiesContext); timing-sensitive ITs 5/5 repeat runs green; no product bugs; test-report.md written
+
+## Deviations from design
+- Default-method unit test is named `provider.WeatherProviderCurrentAtLocationDefaultTest` (the design allowed `WeatherProviderDefaultsTest` or a new class).
+- `BoundedFanOut`: a task returning `null` is treated as a bug (`NullPointerException` rethrown, like any escaping exception), making the "task must return non-null" contract explicit. A worker failure reported between the caller's last `poll` and setting `stopped` is drained and rethrown; failures after that are logged at ERROR (class name only). A failure that is neither `RuntimeException` nor `Error` (only possible via sneaky throws) is wrapped in `IllegalStateException`.
+- `BoundedFanOutTest` has a few tests beyond (a)-(h): `Error`/null result rethrow, MDC clearing on a pooled (single-thread) executor, interrupted caller, and `map` after `close`. Test (c) uses a single blocking input so it does not depend on a second task finishing before a 200 ms deadline.
+- The check that `FavouriteWeatherFailure` names are `ErrorCode` names lives in `api.v1.dto.FavouriteWeatherResponseJsonTest` (and `FavouritesWeatherOpenApiDocumentTest`), so the `favourites` test package does not depend on `api.error`.
+- `FavouriteWeatherServiceTest` uses a Mockito-mocked `FavouriteRepository` (the existing `FavouriteServiceTest` pattern) instead of an in-memory fake; the provider is a hand-written thread-safe fake over the stub. Its timeout case uses a 1 s budget with one item blocked until interrupted (upper-bound timing only).
+- The `listFavouritesWeather` description also notes that PATCH/DELETE on the path hit `{id}` and are 400 (A-1), besides the `FavouriteId` description change.
+- 2026-11-15 orchestrator: re-checked build + it (441 IT, 0 fail), no Testcontainers, no build-file or migration changes, run schema dropped and no it:* keys (one stale schema it_cc2eb6edf5 from an earlier failed tester run left for the human); pushed and opened PR #7.
+- 2026-11-15 review round 1: READY FOR HUMAN MERGE (0 blocker, 0 major, 1 minor, 1 nit) https://github.com/vinods21/agentic-weather-app/pull/7#pullrequestreview-5912017156. Loop stopped; round 2 not needed.
