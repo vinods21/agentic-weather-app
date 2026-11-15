@@ -1,8 +1,8 @@
 # real-weather-provider: SDLC status
 Request: Real weather provider: replace the fixed weather data with a real upstream provider behind WeatherProvider (settles decision A-1 from ui-backend-api-contracts).
-Branch: feature/real-weather-provider · PR: (none yet)
+Branch: feature/real-weather-provider · PR: #4 https://github.com/vinods21/agentic-weather-app/pull/4
 ## Phases
-- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [ ] pr  - [ ] review round 1  - [ ] review round 2
+- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [ ] review round 1  - [ ] review round 2
 ## Log
 - 2026-11-15 pm: requirements.md written (AC-1..AC-23)
 - 2026-11-15 architect: design.md written; ADR 0005 (supersedes 0004) and ADR 0006 added; overview.md updated
@@ -15,3 +15,4 @@ Branch: feature/real-weather-provider · PR: (none yet)
 - `WeatherProviderProperties.OpenMeteo`: the URL scheme check is case-insensitive and the scheme is normalised to lower case (e.g. `HTTPS://host/` → `https://host`).
 - `WeatherProviderSelectionTest` (design AC-1..3 unit test with `ApplicationContextRunner`) was not added by the developer, per orchestrator instruction (CLAUDE.md "unit tests: no Spring infra"); the tester owns it. Manually checked instead: `WEATHER_PROVIDER=stub` exported as an env var does not break binding of `weather.provider` (ADR 0005 relaxed-binding note), and the `it` literal `stub` wins over an exported `WEATHER_PROVIDER=bogus`.
 - Tester: `WeatherProviderSelectionTest` from the design is `src/integrationTest/.../provider/WeatherProviderSelectionIT` (CLAUDE.md: no Spring context in unit tests). It isolates itself from the `it` profile and exported `.env` values by replacing the `systemProperties`/`systemEnvironment` property sources before loading the real `application.yml`. Real-provider ITs use a shared `ApplicationContextInitializer` instead of `@DynamicPropertySource`, so they and the AC-23 subclasses share one context.
+- 2026-11-15 orchestrator: re-checked build + it (188 IT, 0 fail), no Testcontainers, no build-file or openapi changes; pushed and opened PR #4.
