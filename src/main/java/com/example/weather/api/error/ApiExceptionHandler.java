@@ -2,6 +2,10 @@ package com.example.weather.api.error;
 
 import com.example.weather.api.ApiPaths;
 import com.example.weather.api.RequestIds;
+import com.example.weather.favourites.FavouriteAlreadyExistsException;
+import com.example.weather.favourites.FavouriteNotFoundException;
+import com.example.weather.favourites.FavouritesLimitReachedException;
+import com.example.weather.favourites.InvalidFavouriteOrderException;
 import com.example.weather.provider.LocationNotFoundException;
 import com.example.weather.provider.WeatherProviderUnavailableException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +20,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.ErrorResponse;
@@ -39,6 +44,11 @@ public class ApiExceptionHandler {
     static final String UPSTREAM_DETAIL = "The weather provider is temporarily unavailable.";
     static final String INTERNAL_DETAIL = "An unexpected error occurred.";
     static final String INVALID_VALUE = "has an invalid value";
+    static final String BODY_FIELD = "body";
+    static final String UNREADABLE_BODY = "must be a JSON object matching the request schema";
+    static final String FAVOURITE_NOT_FOUND_DETAIL = "No favourite exists with this id.";
+    static final String FAVOURITE_EXISTS_DETAIL = "A favourite for this city already exists.";
+    static final String REORDER_FIELD = "ids";
 
     private static final Comparator<FieldErrorDto> ERROR_ORDER =
             Comparator.comparing(FieldErrorDto::field).thenComparing(FieldErrorDto::message);
@@ -74,6 +84,49 @@ public class ApiExceptionHandler {
                 ? List.of()
                 : List.of(new FieldErrorDto(ex.getPropertyName(), INVALID_VALUE));
         return ProblemFactory.build(ErrorCode.VALIDATION_FAILED, VALIDATION_DETAIL, request, errors);
+    }
+
+    /**
+     * A missing, syntactically invalid or wrongly typed JSON body (ADR 0010 §2). Jackson's message
+     * names classes and may echo the input, so only a fixed text is returned.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ProblemDetail> handleUnreadableBody(
+            HttpMessageNotReadableException ex, HttpServletRequest request) throws Exception {
+        guard(ex, request);
+        return ProblemFactory.build(ErrorCode.VALIDATION_FAILED, VALIDATION_DETAIL, request,
+                List.of(new FieldErrorDto(BODY_FIELD, UNREADABLE_BODY)));
+    }
+
+    /** A reorder whose ids don't describe the client's list; the message is one of the fixed texts. */
+    @ExceptionHandler(InvalidFavouriteOrderException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidOrder(
+            InvalidFavouriteOrderException ex, HttpServletRequest request) throws Exception {
+        guard(ex, request);
+        return ProblemFactory.build(ErrorCode.VALIDATION_FAILED, VALIDATION_DETAIL, request,
+                List.of(new FieldErrorDto(REORDER_FIELD, ex.getMessage())));
+    }
+
+    @ExceptionHandler(FavouriteNotFoundException.class)
+    public ResponseEntity<ProblemDetail> handleFavouriteNotFound(
+            FavouriteNotFoundException ex, HttpServletRequest request) throws Exception {
+        guard(ex, request);
+        return ProblemFactory.build(ErrorCode.NOT_FOUND, FAVOURITE_NOT_FOUND_DETAIL, request, null);
+    }
+
+    @ExceptionHandler(FavouriteAlreadyExistsException.class)
+    public ResponseEntity<ProblemDetail> handleFavouriteExists(
+            FavouriteAlreadyExistsException ex, HttpServletRequest request) throws Exception {
+        guard(ex, request);
+        return ProblemFactory.build(ErrorCode.FAVOURITE_ALREADY_EXISTS, FAVOURITE_EXISTS_DETAIL, request, null);
+    }
+
+    @ExceptionHandler(FavouritesLimitReachedException.class)
+    public ResponseEntity<ProblemDetail> handleFavouritesLimit(
+            FavouritesLimitReachedException ex, HttpServletRequest request) throws Exception {
+        guard(ex, request);
+        String detail = "This client already has the maximum of " + ex.max() + " favourites.";
+        return ProblemFactory.build(ErrorCode.FAVOURITES_LIMIT_REACHED, detail, request, null);
     }
 
     @ExceptionHandler(LocationNotFoundException.class)

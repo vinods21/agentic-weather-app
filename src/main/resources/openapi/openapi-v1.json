@@ -235,7 +235,7 @@
           "instance": { "type": "string", "format": "uri-reference", "description": "Request path.", "example": "/api/v1/weather/current" },
           "code": {
             "type": "string",
-            "enum": ["VALIDATION_FAILED", "LOCATION_NOT_FOUND", "NOT_FOUND", "METHOD_NOT_ALLOWED", "UPSTREAM_UNAVAILABLE", "INTERNAL_ERROR"]
+            "enum": ["VALIDATION_FAILED", "LOCATION_NOT_FOUND", "NOT_FOUND", "METHOD_NOT_ALLOWED", "UPSTREAM_UNAVAILABLE", "INTERNAL_ERROR", "FAVOURITE_ALREADY_EXISTS", "FAVOURITES_LIMIT_REACHED"]
           },
           "requestId": { "type": "string", "example": "3f2b1c9e-8d7a-4f3e-9b1a-2c4d6e8f0a1b" },
           "errors": {
