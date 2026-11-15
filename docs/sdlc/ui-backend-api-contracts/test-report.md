@@ -1,5 +1,5 @@
 # UI-backend API contracts: Test report
-Branch: feature/ui-backend-api-contracts @ f5f17ba (code under test; tests added on top) · Date: 2026-11-15 · Env: docker compose (postgres:17, redis:7)
+Branch: feature/ui-backend-api-contracts @ aeb7714 (code under test, includes the D-1 fix; re-test tests in 855787e) · Date: 2026-11-15 (re-run after D-1 fix) · Env: docker compose (postgres:17, redis:7)
 
 Commands: `./gradlew test` (unit) and `scripts/test-env.sh it` (integration, against the running
 compose services; no Testcontainers). Integration tests live in
@@ -14,10 +14,10 @@ double-encoded. The tests create no rows and no Redis keys.
 | AC-2 | `CurrentWeatherIT#ac2_imperialIsConvertedFromMetric`, `UnitsTest` | integration, unit | PASS |
 | AC-3 | `CurrentWeatherIT#ac3_stubIsDeterministic` | integration | PASS |
 | AC-4 | `CurrentWeatherIT#ac4_cityIsTrimmed`, `QueryValidationTest#lengthAfterStrip` | integration, unit | PASS |
-| AC-5 | `ForecastIT#ac5_threeDayForecast`, `ForecastIT#ac5_edge_boundaryDays` (1, 7), `QueryValidationTest#validDays` | integration, unit | PASS |
-| AC-6 | `ForecastIT#ac6_defaultsToFiveDaysMetric` | integration | PASS |
-| AC-7 | `ValidationIT#ac7_invalidParameter` (8 cases), `QueryValidationTest#blankCityInvalid/#invalidUnits/#invalidDays/#nullCityInvalid` | integration, unit | PASS |
-| AC-8 | `ValidationIT#ac8_allViolationsReported`, `QueryValidationTest#allViolationsCollected` | integration, unit | PASS |
+| AC-5 | `ForecastIT#ac5_threeDayForecast`, `ForecastIT#ac5_edge_boundaryDays` (1, 7), `DaysParsingIT#ac5_lenientDecimalFormsAccepted`, `QueryValidationTest#validDays`, `DaysParamValidatorTest#ac5_lenientButDecimalFormsAccepted` | integration, unit | PASS |
+| AC-6 | `ForecastIT#ac6_defaultsToFiveDaysMetric`, `ForecastIT#edge_emptyDaysIsDefault`, `DaysParamValidatorTest#ac6_absentOrEmptyIsDefault` | integration, unit | PASS |
+| AC-7 | `ValidationIT#ac7_invalidParameter` (8 cases), `DaysParsingIT#ac7_nonDecimalDaysRejected` (6 cases), `#ac7_repeatedDaysRejected`, `QueryValidationTest#blankCityInvalid/#invalidUnits/#invalidDays/#nullCityInvalid/#nonIntegerDaysInvalid`, `DaysParamValidatorTest#ac7_nonDecimalFormsRejected/#ac7_outOfRangeIntegersGetRangeMessage` | integration, unit | PASS |
+| AC-8 | `ValidationIT#ac8_allViolationsReported`, `ValidationIT#edge_typeMismatchCombinedWithOtherViolations` (D-1), `DaysParsingIT#ac8_hexDaysCollectedWithOthers`, `QueryValidationTest#allViolationsCollected/#nonIntegerDaysCollectedWithOthers` | integration, unit | PASS |
 | AC-9 | `CurrentWeatherIT#ac9_hundredCharacterCityIsInclusive`, `#ac9_edge_lengthIsCheckedAfterTrimming`, `QueryValidationTest#cityLengthIsInclusive` | integration, unit | PASS |
 | AC-10 | `CurrentWeatherIT#ac10_unknownCityCurrent`, `ForecastIT#ac10_unknownCityForecast` | integration | PASS |
 | AC-11 | `RoutingErrorsIT#ac11_unknownApiPath`, `#ac11_edge_instanceHasNoQueryString`, `ApiPathsTest#pathExcludesQuery` | integration, unit | PASS |
@@ -35,40 +35,45 @@ double-encoded. The tests create no rows and no Redis keys.
 | AC-23 | `HealthRegressionIT#ac23_healthUnaffected`, `ApiPathsTest#nonApiPaths` | integration, unit | PASS |
 
 ## Summary
-- **Unit** (`./gradlew test`): 106 passed / 0 failed. New: `QueryValidationTest`,
-  `ApiPathsTest`, `UnitsTest` (boundary/edge cases for validation, the `/api/` guard and units).
-- **Integration** (`scripts/test-env.sh it`): 92 passed / 0 failed / 1 skipped (93 total, including
-  the 3 existing `InfrastructureIT` tests). The skipped test is the defect D-1 reproducer below.
-  On the first run, with that test enabled, it failed (92 / 1).
-- **All 23 ACs pass.** No AC fails because of a product bug, and no AC fails because of a test issue.
+Re-run after the D-1 fix (7fad9d9, 23f8b10, aeb7714):
+- **Unit** (`./gradlew test`): **139 passed / 0 failed**. Of these, 115 are the developer's after
+  the fix and 24 are new in `DaysParamValidatorTest`: hex `0X3`, `#3`, `3L`, `3.0`, `1e0`, `3,4`,
+  `--3`, NBSP prefix, int overflow, `-0`/`00`/`+8` range message, `03`/`+3`/surrounding whitespace
+  accepted, empty is the default, and `resolvedDays()` fails fast when the query wasn't validated.
+- **Integration** (`scripts/test-env.sh it`): **104 passed / 0 failed / 0 skipped**. That is the
+  93 from before, now including the re-enabled D-1 reproducer, plus 11 new in `DaysParsingIT`:
+  `0x3`, `1 2`, `#3`, `3.0`, `1e0` and overflow over HTTP, a repeated `days=2&days=3`, `03`/`+3`/` 3 `
+  accepted, and `days=0x3` reported together with `city` and `units`.
+- **All 23 ACs pass.** No open product defects.
+
+Earlier run, before the fix: unit 106/0, integration 92 passed / 0 failed / 1 skipped (D-1).
 
 ## Failures / defects found
 
-### Product defects (not AC failures)
-- **D-1 (minor): a `days` type mismatch hides the other validation errors.**
-  `GET /api/v1/weather/forecast?units=kelvin&days=abc` returns 400 with `errors` = `[days]`
-  only. The `city` (missing) and `units` (invalid) violations are not reported. Test:
-  `ValidationIT#edge_typeMismatchCombinedWithOtherViolations`. It is `@Disabled("Defect D-1 ...")`
-  so the AC suite stays green; remove the annotation to reproduce it. Failure output:
-  ```
-  Expecting ArrayList: ["days"] to contain: ["city", "units", "days"]
-  but could not find the following element(s): ["city", "units"]
-  ```
-  This is the risk named in design.md ("days=abc combined with other errors"). AC-7 and AC-8
-  as written still pass, because they don't combine `abc` with other violations. It does go
-  against the intent of AC-8 ("all violations are reported, not only the first"). Likely
-  cause: when `@ModelAttribute` constructor binding fails a conversion, Spring raises the
-  `BindException` with only the binding failure and does not run Bean Validation on the other
-  arguments. Possible fixes (developer's call): bind `days` as a `String` and validate it with
-  `@Pattern`/a custom constraint, or validate the remaining arguments in the handler. Product
-  code was not changed.
+### Product defects
+- **D-1 (minor): FIXED in 7fad9d9 and verified.** Before the fix, a `days` type mismatch hid the
+  other validation errors: `GET /api/v1/weather/forecast?units=kelvin&days=abc` returned only
+  `[days]`. Now `days` is bound as a `String` and checked by `@DaysParam`, so all three fields
+  are reported. The reproducer `ValidationIT#edge_typeMismatchCombinedWithOtherViolations` is
+  re-enabled (23f8b10) and passes. `DaysParsingIT#ac8_hexDaysCollectedWithOthers` and
+  `QueryValidationTest#nonIntegerDaysCollectedWithOthers` also cover it.
+- **Behaviour change from the fix (intended, documented in status.md deviations):** `0x3` and
+  `#3` were accepted as 3 by Spring's `Integer` converter. They are now 400 with the
+  non-integer message. `03`, `+3` and surrounding whitespace are still accepted. The new tests
+  pin this.
 
 ### Test issues
-- None left. One flake risk was fixed in my own test before the first run: the "rejected value
-  isn't echoed" check used `days=abc`, and a random UUID `requestId` could contain `abc`. It now
-  uses `days=xyzzy`.
+- None. Earlier, a flake risk in my own test was fixed (`days=abc` vs. random UUID request id;
+  it now uses `days=xyzzy`).
 
 ## Not covered / risks
+- **Non-ASCII digits in `days`** (observation, not filed as a defect): `Integer.parseInt` accepts
+  Unicode decimal digits, so for example Arabic-Indic `٣` or fullwidth `３` probably resolve to
+  3. This was not asserted either way. The old `Integer` converter behaved the same, so this is
+  not a regression. If the contract should be ASCII-only, `DaysParamValidator.parse` needs an
+  `[+-]?[0-9]+` pre-check. That is a product decision.
+- The `days` binding-failure branch in `ApiExceptionHandler` can no longer be reached through the
+  API (kept as a defensive fallback, per the developer). It has no integration coverage.
 - **Access-log content** (NFR: one INFO line per request with method, path, status, duration and
   request id; MDC `requestId`) is covered only by the developer's `RequestIdFilterTest` unit
   test. No IT asserts the line. AC-13/AC-14 do assert WARN/ERROR lines with the request id.
