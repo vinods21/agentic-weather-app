@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Deterministic in-process provider with fixed data for five cities. Opt-in for offline local
@@ -118,27 +119,51 @@ public class StubWeatherProvider implements WeatherProvider {
      */
     @Override
     public ObservedConditions currentAtLocation(Location location, Instant now) {
-        for (CityData data : CITIES.values()) {
-            Location fixed = data.current().location();
-            if (fixed.latitude() == location.latitude() && fixed.longitude() == location.longitude()) {
-                return new ObservedConditions(data.current(), now);
-            }
-        }
-        throw new LocationNotFoundException(location.name());
+        CityData data = atCoordinates(location).orElseThrow(() -> new LocationNotFoundException(location.name()));
+        return new ObservedConditions(data.current(), now);
     }
 
     @Override
     public LocationForecast forecast(String city, LocalDate startDate, int days) {
         CityData data = lookup(city);
+        checkDays(days);
+        return new LocationForecast(data.current().location(), firstDays(data, startDate, days));
+    }
+
+    /**
+     * The fixed days of the city whose location has exactly these coordinates, dated from
+     * {@code startDate}, with the passed-in location (ADR 0015 §4). Other coordinates are "not found".
+     */
+    @Override
+    public LocationForecast forecastAtLocation(Location location, LocalDate startDate, int days) {
+        checkDays(days);
+        CityData data = atCoordinates(location).orElseThrow(() -> new LocationNotFoundException(location.name()));
+        return new LocationForecast(location, firstDays(data, startDate, days));
+    }
+
+    private static Optional<CityData> atCoordinates(Location location) {
+        for (CityData data : CITIES.values()) {
+            Location fixed = data.current().location();
+            if (fixed.latitude() == location.latitude() && fixed.longitude() == location.longitude()) {
+                return Optional.of(data);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static void checkDays(int days) {
         if (days < 1 || days > MAX_DAYS) {
             throw new IllegalArgumentException("days must be between 1 and " + MAX_DAYS);
         }
+    }
+
+    private static List<DailyForecast> firstDays(CityData data, LocalDate startDate, int days) {
         List<DailyForecast> result = new ArrayList<>(days);
         for (int i = 0; i < days; i++) {
             Day d = data.days().get(i);
             result.add(new DailyForecast(startDate.plusDays(i), d.min(), d.max(), d.precipitation(), d.condition()));
         }
-        return new LocationForecast(data.current().location(), result);
+        return result;
     }
 
     private static CityData lookup(String city) {

@@ -137,11 +137,24 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
 
     @Override
     public LocationForecast forecast(String city, LocalDate startDate, int days) {
-        if (days < 1 || days > MAX_DAYS) {
-            throw new IllegalArgumentException("days must be between 1 and " + MAX_DAYS);
-        }
+        checkDays(days);
         WeatherCache.Session session = cache.session();
-        Location location = geocode(session, city);
+        return forecast(session, geocode(session, city), startDate, days);
+    }
+
+    /**
+     * Daily forecasts at a stored location (ADR 0015 §2): no geocoding, the same {@code forecast}
+     * cache entry as {@link #forecast(String, LocalDate, int)}, and one daily call on a miss.
+     */
+    @Override
+    public LocationForecast forecastAtLocation(Location location, LocalDate startDate, int days) {
+        checkDays(days);
+        return forecast(cache.session(), location, startDate, days);
+    }
+
+    /** Cached daily forecasts for {@code location}; the result always carries {@code location}. */
+    private LocationForecast forecast(WeatherCache.Session session, Location location, LocalDate startDate,
+                                      int days) {
         Optional<List<DailyForecast>> cached = session.forecast(location, startDate, days);
         if (cached.isPresent()) {
             return new LocationForecast(location, cached.get());
@@ -153,6 +166,12 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
                 json -> mapper.toDaily(location, json, startDate, days));
         session.putForecast(location, startDate, days, forecast.days());
         return forecast;
+    }
+
+    private static void checkDays(int days) {
+        if (days < 1 || days > MAX_DAYS) {
+            throw new IllegalArgumentException("days must be between 1 and " + MAX_DAYS);
+        }
     }
 
     private CurrentConditions fetchCurrent(Location location) {

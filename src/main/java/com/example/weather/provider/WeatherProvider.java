@@ -61,4 +61,20 @@ public interface WeatherProvider {
 
     /** Returns {@code days} consecutive daily forecasts starting at {@code startDate}. */
     LocationForecast forecast(String city, LocalDate startDate, int days);
+
+    /**
+     * Daily forecasts at an already resolved, stored location, without geocoding (ADR 0015).
+     *
+     * <p>{@code startDate} and {@code days} have the same meaning as in
+     * {@link #forecast(String, LocalDate, int)}: the caller computes the UTC start date, adapters never
+     * read a clock, and {@code days} outside 1..7 is an {@link IllegalArgumentException}. The returned
+     * forecast describes the location that was passed in. The failure contract is the same as
+     * {@link #forecast(String, LocalDate, int)}: {@link LocationNotFoundException} when the adapter has
+     * no data for the location, {@link WeatherProviderUnavailableException} for any upstream problem.
+     * The default falls back to resolving the stored canonical name through
+     * {@link #forecast(String, LocalDate, int)}; adapters that can look up by coordinates override it.
+     */
+    default LocationForecast forecastAtLocation(Location location, LocalDate startDate, int days) {
+        return forecast(location.name(), startDate, days);
+    }
 }
