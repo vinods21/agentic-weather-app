@@ -1,8 +1,8 @@
 # weather-for-all-favourites: SDLC status
 Request: Weather for all favourites: one endpoint that returns current weather for every saved favourite of a client.
-Branch: feature/weather-for-all-favourites · PR: (none yet)
+Branch: feature/weather-for-all-favourites · PR: #7 https://github.com/vinods21/agentic-weather-app/pull/7
 ## Phases
-- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [ ] pr  - [ ] review round 1  - [ ] review round 2
+- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [ ] review round 1  - [ ] review round 2
 ## Log
 - 2026-11-15 pm: requirements.md written (AC-1..AC-24)
 - 2026-11-15 architect: design.md written; ADRs 0012 (currentAtLocation, amends 0011), 0013 (bounded fan-out/deadline/MDC), 0014 (per-item errors, amends 0003); overview.md updated
@@ -16,3 +16,4 @@ Branch: feature/weather-for-all-favourites · PR: (none yet)
 - The check that `FavouriteWeatherFailure` names are `ErrorCode` names lives in `api.v1.dto.FavouriteWeatherResponseJsonTest` (and `FavouritesWeatherOpenApiDocumentTest`), so the `favourites` test package does not depend on `api.error`.
 - `FavouriteWeatherServiceTest` uses a Mockito-mocked `FavouriteRepository` (the existing `FavouriteServiceTest` pattern) instead of an in-memory fake; the provider is a hand-written thread-safe fake over the stub. Its timeout case uses a 1 s budget with one item blocked until interrupted (upper-bound timing only).
 - The `listFavouritesWeather` description also notes that PATCH/DELETE on the path hit `{id}` and are 400 (A-1), besides the `FavouriteId` description change.
+- 2026-11-15 orchestrator: re-checked build + it (441 IT, 0 fail), no Testcontainers, no build-file or migration changes, run schema dropped and no it:* keys (one stale schema it_cc2eb6edf5 from an earlier failed tester run left for the human); pushed and opened PR #7.
