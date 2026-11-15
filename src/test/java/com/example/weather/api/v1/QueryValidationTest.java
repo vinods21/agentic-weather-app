@@ -25,6 +25,10 @@ class QueryValidationTest {
         FACTORY.close();
     }
 
+    private static Set<String> messages(Object query) {
+        return VALIDATOR.validate(query).stream().map(ConstraintViolation::getMessage).collect(Collectors.toSet());
+    }
+
     private static Set<String> invalidFields(Object query) {
         Set<ConstraintViolation<Object>> violations = VALIDATOR.validate(query);
         return violations.stream().map(v -> v.getPropertyPath().toString()).collect(Collectors.toSet());
@@ -62,26 +66,48 @@ class QueryValidationTest {
     @DisplayName("AC-7 (unit): units other than exactly metric/imperial are invalid")
     void invalidUnits(String units) {
         assertThat(invalidFields(new CurrentWeatherQuery("London", units))).containsExactly("units");
-        assertThat(invalidFields(new ForecastQuery("London", units, 3))).containsExactly("units");
+        assertThat(invalidFields(new ForecastQuery("London", units, "3"))).containsExactly("units");
     }
 
     @ParameterizedTest
     @ValueSource(ints = {Integer.MIN_VALUE, -1, 0, 8, 99, Integer.MAX_VALUE})
     @DisplayName("AC-7 (unit): days outside 1..7 is invalid")
     void invalidDays(int days) {
-        assertThat(invalidFields(new ForecastQuery("London", null, days))).containsExactly("days");
+        assertThat(invalidFields(new ForecastQuery("London", null, String.valueOf(days)))).containsExactly("days");
     }
 
     @ParameterizedTest
     @ValueSource(ints = {1, 2, 3, 4, 5, 6, 7})
     @DisplayName("AC-5 (unit): days 1..7 is valid")
     void validDays(int days) {
-        assertThat(invalidFields(new ForecastQuery("London", "imperial", days))).isEmpty();
+        assertThat(invalidFields(new ForecastQuery("London", "imperial", String.valueOf(days)))).isEmpty();
     }
 
     @Test
     @DisplayName("AC-8 (unit): every violation is collected, not only the first")
     void allViolationsCollected() {
-        assertThat(invalidFields(new ForecastQuery(null, "kelvin", 99))).containsExactlyInAnyOrder("city", "units", "days");
+        assertThat(invalidFields(new ForecastQuery(null, "kelvin", "99"))).containsExactlyInAnyOrder("city", "units", "days");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc", "1.5", "3x", "0x3", "99999999999", " ", "1 2"})
+    @DisplayName("AC-7 (unit): non-integer days is invalid with the fixed message")
+    void nonIntegerDaysInvalid(String days) {
+        ForecastQuery q = new ForecastQuery("London", null, days);
+        assertThat(invalidFields(q)).containsExactly("days");
+        assertThat(messages(q)).containsExactly("must be an integer between 1 and 7");
+    }
+
+    @Test
+    @DisplayName("AC-7 (unit): out-of-range days uses the range message")
+    void outOfRangeDaysMessage() {
+        assertThat(messages(new ForecastQuery("London", null, "8"))).containsExactly("must be between 1 and 7");
+    }
+
+    @Test
+    @DisplayName("AC-8 (unit): a non-integer days is reported together with the other violations (D-1)")
+    void nonIntegerDaysCollectedWithOthers() {
+        assertThat(invalidFields(new ForecastQuery(null, "kelvin", "abc")))
+                .containsExactlyInAnyOrder("city", "units", "days");
     }
 }

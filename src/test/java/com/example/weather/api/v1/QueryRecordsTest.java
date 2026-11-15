@@ -23,7 +23,9 @@ class QueryRecordsTest {
         ForecastQuery q = new ForecastQuery(" Paris", null, null);
         assertThat(q.city()).isEqualTo("Paris");
         assertThat(q.units()).isEqualTo("metric");
-        assertThat(q.days()).isEqualTo(5);
-        assertThat(new ForecastQuery("Paris", "imperial", 3).days()).isEqualTo(3);
+        assertThat(q.resolvedDays()).isEqualTo(5);
+        assertThat(new ForecastQuery("Paris", "imperial", "").resolvedDays()).isEqualTo(5);
+        assertThat(new ForecastQuery("Paris", "imperial", "3").resolvedDays()).isEqualTo(3);
+        assertThat(new ForecastQuery("Paris", "imperial", " 7 ").resolvedDays()).isEqualTo(7);
     }
 }

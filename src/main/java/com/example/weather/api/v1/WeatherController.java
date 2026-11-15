@@ -28,6 +28,6 @@ public class WeatherController {
 
     @GetMapping("/forecast")
     public ForecastResponse forecast(@Valid @ModelAttribute ForecastQuery query) {
-        return ForecastResponse.from(weatherService.forecast(query.city(), query.resolvedUnits(), query.days()));
+        return ForecastResponse.from(weatherService.forecast(query.city(), query.resolvedUnits(), query.resolvedDays()));
     }
 }
