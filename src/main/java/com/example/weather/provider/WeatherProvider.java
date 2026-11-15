@@ -2,6 +2,8 @@ package com.example.weather.provider;
 
 import com.example.weather.weather.CurrentConditions;
 import com.example.weather.weather.LocationForecast;
+import com.example.weather.weather.ObservedConditions;
+import java.time.Instant;
 import java.time.LocalDate;
 
 /**
@@ -18,6 +20,18 @@ import java.time.LocalDate;
 public interface WeatherProvider {
 
     CurrentConditions current(String city);
+
+    /**
+     * Current conditions plus the instant they were fetched upstream (ADR 0007 §3).
+     *
+     * <p>{@code now} is the service-clock time truncated to seconds; adapters never read a clock.
+     * The result's {@code observedAt} is {@code now}, unless an adapter serves the conditions from
+     * a cache, in which case it is the {@code now} of the request that fetched them. The failure
+     * contract is the same as {@link #current(String)}.
+     */
+    default ObservedConditions currentAt(String city, Instant now) {
+        return new ObservedConditions(current(city), now);
+    }
 
     /** Returns {@code days} consecutive daily forecasts starting at {@code startDate}. */
     LocationForecast forecast(String city, LocalDate startDate, int days);

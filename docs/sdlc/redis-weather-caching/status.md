@@ -1,0 +1,22 @@
+# redis-weather-caching: SDLC status
+Request: Redis caching for weather provider responses
+Branch: feature/redis-weather-caching · PR: #5 https://github.com/vinods21/agentic-weather-app/pull/5
+## Phases
+- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [x] review round 1  - [ ] review round 2
+## Log
+- 2026-11-15 pm: requirements.md written (AC-1..AC-25)
+- 2026-11-15 architect: design.md written; ADR 0007 (Redis cache, fail open, Redis timeouts); overview.md updated
+- 2026-11-15 orchestrator: developer stopped by usage limit after 5 feat/refactor commits (design steps 1-5). Step 6 (IntegrationTestBase cleanup protected, RealProviderCurrentIT#ac7 setup) is uncommitted in the working tree; build/it not yet verified. Resume: developer continues from step 6, then tester.
+- 2026-11-15 developer: design steps 1-6 implemented (5466f66..f856324); ./gradlew build green; scripts/test-env.sh it green (188 ITs, caching enabled); openapi-v1.json unchanged. Steps 7-8 (new AC-mapped ITs and their support classes) left to the tester.
+- 2026-11-15 tester: test-report.md written; IT support + 46 new AC-mapped ITs (com.example.weather.cache) + 12 unit edge cases (6bed2a6..f1df6c6); ./gradlew test 398/0, scripts/test-env.sh it 234/0; AC-1..AC-25 PASS; no product defects; timing-sensitive: AC-13/15/19/21.
+
+## Deviations from design
+- `OpenMeteoWeatherProviderTest` new cases live in a separate class `OpenMeteoWeatherProviderCachingTest` (same package) so the existing class is untouched.
+- `RedisWeatherCache` also has a public 3-arg constructor `(CacheStore, CacheKeys, WeatherCacheProperties)` because `CacheCodec` is package-private and tests in other packages need to build it; the 4-arg constructor is package-private.
+- `WeatherCache.disabled()` is backed by a package-private enum `DisabledWeatherCache`.
+- `WeatherCacheProperties.defaults()` static factory added (used by unit tests).
+- `CacheCodec` also disables Jackson scalar coercion and `ACCEPT_FLOAT_AS_INT` (so `"81"` or `81.5` for an int field is unreadable) and requires `windSpeed >= 0` (the mapper's invariant).
+- Existing-test setup change not listed in the design: `WeatherProviderSelectionIT` (an `ApplicationContextRunner` with only `WeatherProviderConfiguration`) now registers `WeatherCache.disabled()` as a bean, since the provider factory takes a `WeatherCache`. No assertion changed (AC-25).
+- Test-support classes from design step 6 (`MutableClock`, `CachingIntegrationTestBase`, `IsolatedCacheStore`, `SilentRedisServer`) were not added; they belong with the tester's step 7-8 ITs.
+- 2026-11-15 orchestrator: re-checked build + it (234 IT, 0 fail), no Testcontainers, no build-file/openapi/migration changes, no leftover it:* keys; pushed and opened PR #5.
+- 2026-11-15 review round 1: READY FOR HUMAN MERGE (0 blocker, 0 major, 1 minor, 2 nit) https://github.com/vinods21/agentic-weather-app/pull/5#pullrequestreview-5910003845. Loop stopped; round 2 not needed.

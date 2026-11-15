@@ -3,12 +3,14 @@ package com.example.weather.weather;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import com.example.weather.provider.WeatherProvider;
 import com.example.weather.provider.stub.StubWeatherProvider;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** Unit test: no Spring context, no Docker. */
@@ -27,6 +29,37 @@ class WeatherServiceTest {
         assertThat(w.temperature()).isEqualTo(11.2);
         assertThat(w.windSpeed()).isEqualTo(4.1);
         assertThat(w.observedAt()).isEqualTo(Instant.parse("2026-11-15T23:30:45Z"));
+    }
+
+    @Test
+    @DisplayName("AC-24: the service passes its truncated clock time and uses the provider's observedAt")
+    void observedAtComesFromProvider() {
+        Instant fetchedAt = Instant.parse("2026-11-15T23:25:00Z");
+        Instant[] passed = new Instant[1];
+        StubWeatherProvider stub = new StubWeatherProvider();
+        WeatherProvider cached = new WeatherProvider() {
+            @Override
+            public CurrentConditions current(String city) {
+                throw new AssertionError("currentAt must be used");
+            }
+
+            @Override
+            public ObservedConditions currentAt(String city, Instant now) {
+                passed[0] = now;
+                return new ObservedConditions(stub.current(city), fetchedAt);
+            }
+
+            @Override
+            public LocationForecast forecast(String city, LocalDate startDate, int days) {
+                return stub.forecast(city, startDate, days);
+            }
+        };
+
+        CurrentWeather w = new WeatherService(cached, Clock.fixed(NOW, ZoneOffset.UTC)).current("London", Units.IMPERIAL);
+
+        assertThat(passed[0]).isEqualTo(Instant.parse("2026-11-15T23:30:45Z"));
+        assertThat(w.observedAt()).isEqualTo(fetchedAt);
+        assertThat(w.units()).isEqualTo(Units.IMPERIAL);
     }
 
     @Test

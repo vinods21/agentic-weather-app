@@ -1,5 +1,6 @@
 package com.example.weather.provider;
 
+import com.example.weather.cache.WeatherCache;
 import com.example.weather.provider.openmeteo.OpenMeteoWeatherProvider;
 import com.example.weather.provider.stub.StubWeatherProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,11 +22,13 @@ public class WeatherProviderConfiguration {
     @Bean
     WeatherProvider weatherProvider(WeatherProviderProperties properties,
                                     ObjectProvider<RestClient.Builder> restClientBuilder,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper,
+                                    WeatherCache weatherCache) {
         return switch (properties.type()) {
+            // The stub is never cached (AC-3): it never receives the WeatherCache.
             case WeatherProviderProperties.STUB -> new StubWeatherProvider();
-            case WeatherProviderProperties.OPEN_METEO ->
-                    OpenMeteoWeatherProvider.create(properties, restClientBuilder.getObject(), objectMapper);
+            case WeatherProviderProperties.OPEN_METEO -> OpenMeteoWeatherProvider.create(
+                    properties, restClientBuilder.getObject(), objectMapper, weatherCache);
             default -> throw new IllegalStateException("Unhandled weather.provider.type");
         };
     }

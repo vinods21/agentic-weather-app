@@ -34,7 +34,7 @@ public abstract class IntegrationTestBase {
     protected CacheKeys cacheKeys;
 
     @AfterEach
-    void deleteRunRedisKeys() {
+    protected void deleteRunRedisKeys() {
         Set<String> keys = new HashSet<>();
         try (Cursor<String> cursor = redis.scan(ScanOptions.scanOptions().match(cacheKeys.pattern()).count(500).build())) {
             cursor.forEachRemaining(keys::add);
