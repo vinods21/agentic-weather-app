@@ -1,0 +1,250 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "agentic-weather-app API",
+    "version": "1.0.0",
+    "description": "Read-only weather API for the UI.\n\nCompatibility policy: v1 is additive-only. New fields, error codes and optional parameters may be added; nothing is removed or renamed. Clients MUST ignore unknown response fields. Breaking changes go to /api/v2.\n\nConventions: JSON property names are camelCase, timestamps are ISO-8601 UTC ending in Z, dates are YYYY-MM-DD. Unknown query parameters are ignored. An empty days= value is treated as absent (default 5); an empty units= value is invalid.\n\nErrors: every failure under /api/ is an RFC 9457 Problem Details body (application/problem+json) with a stable machine-readable code. A non-GET method on an existing path returns 405 METHOD_NOT_ALLOWED with an Allow header; an unknown path under /api/ returns 404 NOT_FOUND.\n\nRequest id: send X-Request-Id (matching ^[A-Za-z0-9._-]{1,64}$) to correlate requests; it is echoed back. A missing or invalid value is replaced by a server-generated UUID. Every response carries the header, and error bodies repeat it in requestId.\n\nCORS: allowed origins are configured by the operator (deny-by-default). Allowed methods are GET and OPTIONS, no credentials, and X-Request-Id is exposed."
+  },
+  "servers": [
+    { "url": "/" }
+  ],
+  "paths": {
+    "/api/v1/weather/current": {
+      "get": {
+        "operationId": "getCurrentWeather",
+        "summary": "Current weather for a city",
+        "tags": ["weather"],
+        "parameters": [
+          { "$ref": "#/components/parameters/City" },
+          { "$ref": "#/components/parameters/Units" },
+          { "$ref": "#/components/parameters/RequestId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current weather in the requested units.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CurrentWeather" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/LocationNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/UpstreamUnavailable" }
+        }
+      }
+    },
+    "/api/v1/weather/forecast": {
+      "get": {
+        "operationId": "getForecast",
+        "summary": "Daily forecast for a city",
+        "tags": ["weather"],
+        "parameters": [
+          { "$ref": "#/components/parameters/City" },
+          { "$ref": "#/components/parameters/Units" },
+          { "$ref": "#/components/parameters/Days" },
+          { "$ref": "#/components/parameters/RequestId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily forecast starting at today's UTC date, ascending, no gaps, one entry per requested day.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Forecast" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/LocationNotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/UpstreamUnavailable" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "City": {
+        "name": "city",
+        "in": "query",
+        "required": true,
+        "description": "City name. Surrounding whitespace is removed; the result must be 1 to 100 characters. Matching is case-insensitive.",
+        "schema": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "example": "London"
+      },
+      "Units": {
+        "name": "units",
+        "in": "query",
+        "required": false,
+        "description": "metric = deg C and m/s; imperial = deg F and mph. Case-sensitive.",
+        "schema": { "type": "string", "enum": ["metric", "imperial"], "default": "metric" }
+      },
+      "Days": {
+        "name": "days",
+        "in": "query",
+        "required": false,
+        "description": "Number of forecast days.",
+        "schema": { "type": "integer", "format": "int32", "minimum": 1, "maximum": 7, "default": 5 }
+      },
+      "RequestId": {
+        "name": "X-Request-Id",
+        "in": "header",
+        "required": false,
+        "description": "Client correlation id. Echoed if valid, otherwise replaced by a server-generated UUID.",
+        "schema": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$", "maxLength": 64 }
+      }
+    },
+    "headers": {
+      "XRequestId": {
+        "description": "The request's correlation id (echoed client value or a generated UUID).",
+        "schema": { "type": "string" }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "VALIDATION_FAILED: one or more query parameters are missing or invalid. All violations are listed in errors.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/Problem" }
+          }
+        }
+      },
+      "LocationNotFound": {
+        "description": "LOCATION_NOT_FOUND: the provider has no data for the requested city.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/Problem" }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "INTERNAL_ERROR: an unexpected server error.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/Problem" }
+          }
+        }
+      },
+      "UpstreamUnavailable": {
+        "description": "UPSTREAM_UNAVAILABLE: the weather provider failed or timed out. Retry later.",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/Problem" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Location": {
+        "type": "object",
+        "required": ["name", "country", "latitude", "longitude"],
+        "properties": {
+          "name": { "type": "string", "description": "Canonical city name.", "example": "London" },
+          "country": { "type": "string", "pattern": "^[A-Z]{2}$", "description": "ISO 3166-1 alpha-2 code.", "example": "GB" },
+          "latitude": { "type": "number", "format": "double", "minimum": -90, "maximum": 90, "example": 51.5074 },
+          "longitude": { "type": "number", "format": "double", "minimum": -180, "maximum": 180, "example": -0.1278 }
+        }
+      },
+      "Condition": {
+        "type": "object",
+        "required": ["code", "description"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": ["CLEAR", "PARTLY_CLOUDY", "CLOUDY", "FOG", "DRIZZLE", "RAIN", "SNOW", "THUNDERSTORM"]
+          },
+          "description": { "type": "string", "description": "Human-readable text (English, not localised).", "example": "Overcast clouds" }
+        }
+      },
+      "CurrentWeather": {
+        "type": "object",
+        "required": ["location", "observedAt", "units", "temperature", "feelsLike", "humidity", "windSpeed", "windDirection", "condition"],
+        "properties": {
+          "location": { "$ref": "#/components/schemas/Location" },
+          "observedAt": { "type": "string", "format": "date-time", "description": "ISO-8601 UTC timestamp ending in Z.", "example": "2026-11-15T10:00:00Z" },
+          "units": { "type": "string", "enum": ["metric", "imperial"] },
+          "temperature": { "type": "number", "format": "double", "description": "deg C (metric) or deg F (imperial).", "example": 11.2 },
+          "feelsLike": { "type": "number", "format": "double", "description": "deg C (metric) or deg F (imperial).", "example": 9.8 },
+          "humidity": { "type": "integer", "format": "int32", "minimum": 0, "maximum": 100, "description": "Relative humidity in percent.", "example": 81 },
+          "windSpeed": { "type": "number", "format": "double", "minimum": 0, "description": "m/s (metric) or mph (imperial).", "example": 4.1 },
+          "windDirection": { "type": "integer", "format": "int32", "minimum": 0, "maximum": 359, "description": "Degrees.", "example": 230 },
+          "condition": { "$ref": "#/components/schemas/Condition" }
+        }
+      },
+      "ForecastDay": {
+        "type": "object",
+        "required": ["date", "minTemperature", "maxTemperature", "precipitationProbability", "condition"],
+        "properties": {
+          "date": { "type": "string", "format": "date", "example": "2026-11-15" },
+          "minTemperature": { "type": "number", "format": "double", "description": "deg C (metric) or deg F (imperial).", "example": 6.0 },
+          "maxTemperature": { "type": "number", "format": "double", "description": "deg C (metric) or deg F (imperial).", "example": 12.5 },
+          "precipitationProbability": { "type": "integer", "format": "int32", "minimum": 0, "maximum": 100, "description": "Percent.", "example": 40 },
+          "condition": { "$ref": "#/components/schemas/Condition" }
+        }
+      },
+      "Forecast": {
+        "type": "object",
+        "required": ["location", "units", "days"],
+        "properties": {
+          "location": { "$ref": "#/components/schemas/Location" },
+          "units": { "type": "string", "enum": ["metric", "imperial"] },
+          "days": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 7,
+            "items": { "$ref": "#/components/schemas/ForecastDay" }
+          }
+        }
+      },
+      "FieldError": {
+        "type": "object",
+        "required": ["field", "message"],
+        "properties": {
+          "field": { "type": "string", "description": "Name of the query parameter.", "example": "city" },
+          "message": { "type": "string", "example": "must not be blank" }
+        }
+      },
+      "Problem": {
+        "type": "object",
+        "description": "RFC 9457 Problem Details with a stable code and the request id.",
+        "required": ["type", "title", "status", "detail", "instance", "code", "requestId"],
+        "properties": {
+          "type": { "type": "string", "format": "uri", "description": "Problem type identifier (need not resolve).", "example": "https://weather.example.com/problems/validation-failed" },
+          "title": { "type": "string", "example": "Validation failed" },
+          "status": { "type": "integer", "format": "int32", "example": 400 },
+          "detail": { "type": "string", "example": "One or more request parameters are invalid." },
+          "instance": { "type": "string", "format": "uri-reference", "description": "Request path.", "example": "/api/v1/weather/current" },
+          "code": {
+            "type": "string",
+            "enum": ["VALIDATION_FAILED", "LOCATION_NOT_FOUND", "NOT_FOUND", "METHOD_NOT_ALLOWED", "UPSTREAM_UNAVAILABLE", "INTERNAL_ERROR"]
+          },
+          "requestId": { "type": "string", "example": "3f2b1c9e-8d7a-4f3e-9b1a-2c4d6e8f0a1b" },
+          "errors": {
+            "type": "array",
+            "description": "Present only for VALIDATION_FAILED.",
+            "items": { "$ref": "#/components/schemas/FieldError" }
+          }
+        }
+      }
+    }
+  }
+}
