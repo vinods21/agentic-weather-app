@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -58,11 +59,17 @@ public class ApiExceptionHandler {
      * A {@code @RequestParam}/{@code @PathVariable} conversion failure (covers
      * {@code MethodArgumentTypeMismatchException}). Spring's message names classes and echoes the
      * value, so only the parameter name and a fixed message are returned.
+     * {@link ConversionNotSupportedException} (and {@code MethodArgumentConversionNotSupportedException})
+     * is a subclass but means no converter is registered, a server-side fault, so it goes to the
+     * 500 path instead.
      */
     @ExceptionHandler(TypeMismatchException.class)
     public ResponseEntity<ProblemDetail> handleTypeMismatch(TypeMismatchException ex, HttpServletRequest request)
             throws Exception {
         guard(ex, request);
+        if (ex instanceof ConversionNotSupportedException) {
+            return handleUnexpected(ex, request);
+        }
         List<FieldErrorDto> errors = ex.getPropertyName() == null
                 ? List.of()
                 : List.of(new FieldErrorDto(ex.getPropertyName(), INVALID_VALUE));

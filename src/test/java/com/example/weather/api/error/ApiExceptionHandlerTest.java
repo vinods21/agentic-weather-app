@@ -20,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -27,6 +28,7 @@ import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.method.annotation.MethodArgumentConversionNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
@@ -103,6 +105,49 @@ class ApiExceptionHandlerTest {
         assertThat(response.getBody().getProperties())
                 .containsEntry("code", "VALIDATION_FAILED")
                 .containsEntry("errors", List.of());
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("Edge (unit): ConversionNotSupportedException (no converter) is 500 INTERNAL_ERROR, not 400")
+    void conversionNotSupportedIsInternalError(CapturedOutput output) throws Exception {
+        ConversionNotSupportedException ex = new ConversionNotSupportedException(
+                "secret-value", Integer.class, new IllegalStateException("no-converter-secret"));
+
+        ResponseEntity<ProblemDetail> response = handler.handleTypeMismatch(ex, apiRequest("/api/v1/weather/current"));
+
+        assertInternalError(response, output);
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    @DisplayName("Edge (unit): MethodArgumentConversionNotSupportedException is 500 INTERNAL_ERROR, not 400")
+    void methodArgumentConversionNotSupportedIsInternalError(CapturedOutput output) throws Exception {
+        MethodArgumentConversionNotSupportedException ex = new MethodArgumentConversionNotSupportedException(
+                "secret-value", Integer.class, "days", null, new IllegalStateException("no-converter-secret"));
+
+        ResponseEntity<ProblemDetail> response = handler.handleTypeMismatch(ex, apiRequest("/api/v1/weather/current"));
+
+        assertInternalError(response, output);
+    }
+
+    private static void assertInternalError(ResponseEntity<ProblemDetail> response, CapturedOutput output) {
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+        ProblemDetail body = response.getBody();
+        assertThat(body.getDetail()).isEqualTo("An unexpected error occurred.");
+        assertThat(body.getProperties())
+                .containsEntry("code", "INTERNAL_ERROR")
+                .containsEntry("requestId", "ui-abc-123")
+                .doesNotContainKey("errors");
+        assertThat(body.toString())
+                .doesNotContain("secret-value")
+                .doesNotContain("no-converter-secret")
+                .doesNotContain("Conversion")
+                .doesNotContain("java.");
+        assertThat(output.getAll().lines()
+                .anyMatch(l -> l.contains("ERROR") && l.contains("Unhandled error") && l.contains("ui-abc-123")))
+                .isTrue();
     }
 
     @Test
