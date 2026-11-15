@@ -1,6 +1,6 @@
 # ui-backend-api-contracts: SDLC status
 Request: build the api contracts between ui and backend
-Branch: feature/ui-backend-api-contracts · PR: #2 https://github.com/vinods21/agentic-weather-app/pull/2
+Branch: feature/ui-backend-api-contracts · PR: #2 https://github.com/vinods21/agentic-weather-app/pull/2 (merged) · follow-up #3 https://github.com/vinods21/agentic-weather-app/pull/3
 ## Phases
 - [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [x] review round 1  - [ ] review round 2
 ## Log
@@ -28,3 +28,4 @@ Branch: feature/ui-backend-api-contracts · PR: #2 https://github.com/vinods21/a
 - 2026-11-15 orchestrator: PR #2 was merged by a human at 04:50Z (merge a86ff72, head 86504bd) before the round-1 fix commits (0fabbfd..fb09223) were pushed. Round-2 review not posted (fixes not in PR #2); reviewer pre-review: all 6 round-1 points resolved, 1 new minor (ConversionNotSupportedException mapped to 400). Human chose: fix that minor, then open a follow-up PR.
 - 2026-11-15 developer: fixed pre-review minor @ 8ea2431: ConversionNotSupportedException/MethodArgumentConversionNotSupportedException now delegate to the 500 INTERNAL_ERROR path (was 400); +2 unit tests, MethodArgumentTypeMismatchException still 400; build 150 unit / it 107 IT, 0 fail; not pushed.
 - 2026-11-15 tester: re-test @ 2cb3e3e (fix 8ea2431 + merge of main 372aa3b): unit 150/0, integration 107 passed/0 failed/0 skipped; all AC-1..AC-23 PASS; ConversionNotSupportedException observation resolved (500 INTERNAL_ERROR, unit-tested; plain TypeMismatchException still 400); no new tests needed; test-report.md updated
+- 2026-11-15 orchestrator: re-checked build + it (107 IT, 0 fail), no Testcontainers; opened follow-up PR #3 with round-1 fixes + ConversionNotSupportedException fix.
