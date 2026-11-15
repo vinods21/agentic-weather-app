@@ -22,7 +22,8 @@ import org.springframework.http.ResponseEntity;
 class OpenApiIT extends ApiIntegrationTestBase {
 
     static final List<String> ERROR_CODES = List.of("VALIDATION_FAILED", "LOCATION_NOT_FOUND", "NOT_FOUND",
-            "METHOD_NOT_ALLOWED", "UPSTREAM_UNAVAILABLE", "INTERNAL_ERROR");
+            "METHOD_NOT_ALLOWED", "UPSTREAM_UNAVAILABLE", "INTERNAL_ERROR",
+            "FAVOURITE_ALREADY_EXISTS", "FAVOURITES_LIMIT_REACHED");
 
     private ResponseEntity<String> response;
     private JsonNode spec;
@@ -125,7 +126,7 @@ class OpenApiIT extends ApiIntegrationTestBase {
     }
 
     @Test
-    @DisplayName("AC-20: Problem.code enum is exactly the six error codes")
+    @DisplayName("AC-20: Problem.code enum is exactly the eight error codes (saved-favourite-locations AC-27)")
     void ac20_problemCodeEnum() {
         JsonNode problem = schemas.schema("Problem");
         assertThat(texts(problem.at("/properties/code/enum"))).containsExactlyInAnyOrderElementsOf(ERROR_CODES);

@@ -13,7 +13,9 @@ public enum ErrorCode {
     NOT_FOUND(HttpStatus.NOT_FOUND, "not-found", "Not found"),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "method-not-allowed", "Method not allowed"),
     UPSTREAM_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "upstream-unavailable", "Upstream unavailable"),
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal-error", "Internal error");
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal-error", "Internal error"),
+    FAVOURITE_ALREADY_EXISTS(HttpStatus.CONFLICT, "favourite-already-exists", "Favourite already exists"),
+    FAVOURITES_LIMIT_REACHED(HttpStatus.CONFLICT, "favourites-limit-reached", "Favourites limit reached");
 
     private static final String TYPE_BASE = "https://weather.example.com/problems/";
 

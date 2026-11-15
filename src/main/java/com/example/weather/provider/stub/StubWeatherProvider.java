@@ -104,6 +104,12 @@ public class StubWeatherProvider implements WeatherProvider {
         return lookup(city).current();
     }
 
+    /** The city's fixed location, without building conditions (ADR 0011 §3). */
+    @Override
+    public Location locate(String city) {
+        return lookup(city).current().location();
+    }
+
     @Override
     public LocationForecast forecast(String city, LocalDate startDate, int days) {
         CityData data = lookup(city);

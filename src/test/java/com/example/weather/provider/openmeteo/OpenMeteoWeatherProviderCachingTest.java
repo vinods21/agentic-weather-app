@@ -171,4 +171,35 @@ class OpenMeteoWeatherProviderCachingTest {
         server.verify();
         assertThat(store.values()).containsOnlyKeys(keys.geocoding("London"));
     }
+
+    @Test
+    @DisplayName("AC-32 (unit): locate makes only the geocoding call and shares the geocoding entry")
+    void locateIsGeocodingOnly() {
+        expectGeocoding(GEOCODING_OK);
+        expectForecast(CURRENT_OK);
+
+        Location located = provider.locate("London");
+        ObservedConditions current = provider.currentAt("london", T0);
+        Location again = provider.locate("LONDON");
+
+        server.verify();
+        assertThat(located).isEqualTo(LONDON);
+        assertThat(again).isEqualTo(LONDON);
+        assertThat(current.conditions().location()).isEqualTo(LONDON);
+        assertThat(store.values()).containsOnlyKeys(keys.geocoding("London"), keys.current(LONDON));
+    }
+
+    @Test
+    @DisplayName("AC-32 (unit): locate caches not found and writes nothing on an upstream failure")
+    void locateFailures() {
+        expectGeocoding("{\"results\":[]}");
+        server.expect(requestTo(Matchers.startsWith(BASE + "/v1/search?"))).andRespond(withServerError());
+
+        assertThatThrownBy(() -> provider.locate("Atlantis")).isInstanceOf(LocationNotFoundException.class);
+        assertThatThrownBy(() -> provider.locate("ATLANTIS")).isInstanceOf(LocationNotFoundException.class);
+        assertThatThrownBy(() -> provider.locate("London")).isInstanceOf(WeatherProviderUnavailableException.class);
+
+        server.verify();
+        assertThat(store.values()).containsOnlyKeys(keys.geocoding("Atlantis"));
+    }
 }

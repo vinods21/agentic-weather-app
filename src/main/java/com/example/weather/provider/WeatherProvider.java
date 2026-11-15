@@ -1,6 +1,7 @@
 package com.example.weather.provider;
 
 import com.example.weather.weather.CurrentConditions;
+import com.example.weather.weather.Location;
 import com.example.weather.weather.LocationForecast;
 import com.example.weather.weather.ObservedConditions;
 import java.time.Instant;
@@ -31,6 +32,17 @@ public interface WeatherProvider {
      */
     default ObservedConditions currentAt(String city, Instant now) {
         return new ObservedConditions(current(city), now);
+    }
+
+    /**
+     * Resolves {@code city} to a location only (ADR 0011). Callers pass the city as the user sent
+     * it (stripped), never a pre-normalised form. The failure contract is the same as
+     * {@link #current(String)}: an unknown city throws {@link LocationNotFoundException}, an
+     * upstream problem {@link WeatherProviderUnavailableException}. The default fetches the
+     * current conditions; adapters that can resolve a location more cheaply override it.
+     */
+    default Location locate(String city) {
+        return current(city).location();
     }
 
     /** Returns {@code days} consecutive daily forecasts starting at {@code startDate}. */

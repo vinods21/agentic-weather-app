@@ -4,6 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.weather.api.RequestIds;
+import com.example.weather.favourites.FavouriteAlreadyExistsException;
+import com.example.weather.favourites.FavouriteNotFoundException;
+import com.example.weather.favourites.FavouritesLimitReachedException;
+import com.example.weather.favourites.InvalidFavouriteOrderException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.weather.provider.LocationNotFoundException;
 import com.example.weather.provider.WeatherProviderUnavailableException;
 import java.net.URI;
@@ -20,6 +25,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -278,5 +285,116 @@ class ApiExceptionHandlerTest {
         Object id = response.getBody().getProperties().get("requestId");
         assertThat(java.util.UUID.fromString((String) id)).isNotNull();
         assertThat(request.getAttribute(RequestIds.ATTRIBUTE)).isEqualTo(id);
+    }
+
+    // --- saved-favourite-locations ---
+
+    private static MockHttpServletRequest favouritesRequest() {
+        MockHttpServletRequest request = apiRequest("/api/v1/favourites");
+        request.setMethod("POST");
+        return request;
+    }
+
+    @Test
+    @DisplayName("AC-5 (unit): an unreadable body is 400 VALIDATION_FAILED with one fixed body error, no class names or input")
+    void unreadableBodyIsValidationFailed() throws Exception {
+        HttpMessageNotReadableException ex = new HttpMessageNotReadableException(
+                "JSON parse error: Cannot deserialize value of type `java.lang.String` from Array value; "
+                        + "com.fasterxml.jackson.databind.exc.MismatchedInputException: input SECRET-INPUT",
+                new MockHttpInputMessage("SECRET-INPUT".getBytes()));
+
+        ResponseEntity<ProblemDetail> response = handler.handleUnreadableBody(ex, favouritesRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+        ProblemDetail body = response.getBody();
+        assertThat(body.getProperties()).containsEntry("code", "VALIDATION_FAILED");
+        assertThat(body.getDetail()).isEqualTo(ApiExceptionHandler.VALIDATION_DETAIL);
+        assertThat(body.getProperties().get("errors")).isEqualTo(List.of(
+                new FieldErrorDto("body", "must be a JSON object matching the request schema")));
+        String json = new ObjectMapper().writeValueAsString(body);
+        assertThat(json).doesNotContain("Jackson").doesNotContain("jackson").doesNotContain("com.")
+                .doesNotContain("java.").doesNotContain("SECRET-INPUT");
+    }
+
+    @Test
+    void unreadableBodyOutsideApiIsRethrown() {
+        HttpMessageNotReadableException ex =
+                new HttpMessageNotReadableException("x", new MockHttpInputMessage(new byte[0]));
+        assertThatThrownBy(() -> handler.handleUnreadableBody(ex, new MockHttpServletRequest("POST", "/elsewhere")))
+                .isSameAs(ex);
+    }
+
+    @Test
+    @DisplayName("AC-23 (unit): an invalid reorder is 400 VALIDATION_FAILED on field ids with the fixed message")
+    void invalidOrderIsValidationFailed() throws Exception {
+        ResponseEntity<ProblemDetail> response = handler.handleInvalidOrder(
+                new InvalidFavouriteOrderException(InvalidFavouriteOrderException.SET_MISMATCH), favouritesRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().getProperties()).containsEntry("code", "VALIDATION_FAILED");
+        assertThat(response.getBody().getProperties().get("errors")).isEqualTo(List.of(
+                new FieldErrorDto("ids", "must contain every favourite id of this client exactly once")));
+    }
+
+    @Test
+    @DisplayName("AC-20 (unit): a missing favourite is 404 NOT_FOUND with a detail that differs from the routing 404")
+    void favouriteNotFound() throws Exception {
+        ResponseEntity<ProblemDetail> response =
+                handler.handleFavouriteNotFound(new FavouriteNotFoundException(), favouritesRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        ProblemDetail body = response.getBody();
+        assertThat(body.getProperties()).containsEntry("code", "NOT_FOUND");
+        assertThat(body.getType()).isEqualTo(URI.create("https://weather.example.com/problems/not-found"));
+        assertThat(body.getDetail()).isEqualTo("No favourite exists with this id.")
+                .isNotEqualTo(ApiExceptionHandler.NOT_FOUND_DETAIL);
+        assertThat(body.getProperties()).doesNotContainKey("errors");
+    }
+
+    @Test
+    @DisplayName("AC-9, AC-27 (unit): a duplicate is 409 FAVOURITE_ALREADY_EXISTS with a fixed detail")
+    void favouriteAlreadyExists() throws Exception {
+        ResponseEntity<ProblemDetail> response =
+                handler.handleFavouriteExists(new FavouriteAlreadyExistsException(), favouritesRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        ProblemDetail body = response.getBody();
+        assertThat(body.getType())
+                .isEqualTo(URI.create("https://weather.example.com/problems/favourite-already-exists"));
+        assertThat(body.getTitle()).isEqualTo("Favourite already exists");
+        assertThat(body.getDetail()).isEqualTo("A favourite for this city already exists.");
+        assertThat(body.getProperties()).containsEntry("code", "FAVOURITE_ALREADY_EXISTS")
+                .containsEntry("requestId", "ui-abc-123");
+        assertThat(body.getInstance()).isEqualTo(URI.create("/api/v1/favourites"));
+    }
+
+    @Test
+    @DisplayName("AC-13, AC-27 (unit): the limit is 409 FAVOURITES_LIMIT_REACHED and the detail carries the max")
+    void favouritesLimitReached() throws Exception {
+        ResponseEntity<ProblemDetail> response =
+                handler.handleFavouritesLimit(new FavouritesLimitReachedException(3), favouritesRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        ProblemDetail body = response.getBody();
+        assertThat(body.getType())
+                .isEqualTo(URI.create("https://weather.example.com/problems/favourites-limit-reached"));
+        assertThat(body.getTitle()).isEqualTo("Favourites limit reached");
+        assertThat(body.getDetail()).isEqualTo("This client already has the maximum of 3 favourites.");
+        assertThat(body.getProperties()).containsEntry("code", "FAVOURITES_LIMIT_REACHED");
+    }
+
+    @Test
+    @DisplayName("AC-27 (unit): the two new codes are 409; the six existing codes keep their status")
+    void errorCodeSet() {
+        assertThat(ErrorCode.values()).hasSize(8);
+        assertThat(ErrorCode.FAVOURITE_ALREADY_EXISTS.status()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(ErrorCode.FAVOURITES_LIMIT_REACHED.status()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(ErrorCode.VALIDATION_FAILED.status()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ErrorCode.LOCATION_NOT_FOUND.status()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(ErrorCode.NOT_FOUND.status()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(ErrorCode.METHOD_NOT_ALLOWED.status()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+        assertThat(ErrorCode.UPSTREAM_UNAVAILABLE.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(ErrorCode.INTERNAL_ERROR.status()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
