@@ -10,6 +10,7 @@ Branch: feature/ui-backend-api-contracts · PR: (none yet)
 - 2026-11-15 architect: design.md written; ADRs 0002 (hand-written OpenAPI), 0003 (API conventions), 0004 (provider port + stub); overview.md updated; no new dependencies, no migrations
 - 2026-11-15 developer: implemented design steps 1-7 (domain + stub provider, WeatherService, v1 controller/DTOs, Problem Details advice, request-id filter, CORS, OpenAPI doc + controller) with unit tests; `./gradlew build` and `scripts/test-env.sh it` green; AC-mapped ITs (design step 8 and the per-step ITs) left to the tester.
 - 2026-11-15 tester: 12 AC-mapped IT classes + 3 unit test classes added; unit 106/0, integration 92 passed/0 failed/1 skipped; all AC-1..AC-23 PASS; defect D-1 (days type mismatch hides other validation errors) reported in test-report.md, reproducer @Disabled
+- 2026-11-15 developer: fixed D-1: forecast `days` bound as String and validated by new `@DaysParam` constraint, so `days=abc` is reported with city/units; ValidationIT D-1 reproducer re-enabled; `./gradlew build` (unit 115/0) and `scripts/test-env.sh it` (93 passed/0 failed/0 skipped) green
 
 ## Deviations from design
 - `WeatherProvider#forecast` returns `weather.LocationForecast(Location location, List<DailyForecast> days)` instead of `List<DailyForecast>`: the forecast response needs the location, and the design's signature gave no way to obtain it.
@@ -17,3 +18,4 @@ Branch: feature/ui-backend-api-contracts · PR: (none yet)
 - `ProblemFactory.build` has an extra overload taking `HttpHeaders` (used for the 405 `Allow` header).
 - `StubWeatherProvider#forecast` throws `IllegalArgumentException` for `days` outside 1..7 (unreachable through the API, which validates first).
 - Extra unit tests beyond the design list: `QueryRecordsTest`, `ApiExceptionHandlerTest`, `RequestIdFilterTest` (servlet mocks, no Spring context).
+- D-1 fix: `ForecastQuery.days` is a `String` (validated by `@DaysParam`/`DaysParamValidator`, read via `resolvedDays()`) instead of `Integer`. Parsing is strict decimal after stripping surrounding whitespace, so values Spring's converter used to accept (e.g. hex `0x3`, `#3`, or internal whitespace) are now 400 with the non-integer message. The binding-failure branch for `days` in `ApiExceptionHandler` is now unreachable but kept as a defensive fallback.
