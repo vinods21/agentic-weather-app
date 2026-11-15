@@ -7,8 +7,10 @@ agentic-weather-app is a Spring Boot 3 (Java 21) HTTP service.
 
 ```
 UI / client ──HTTP /api/v1──▶ app (Spring Boot :8080)
-                               ├─ api        RequestIdFilter → controllers → ApiExceptionHandler (Problem Details)
-                               ├─ weather    WeatherService (units, clock)
+                               ├─ api        RequestIdFilter → (ClientIdArgumentResolver) → controllers → ApiExceptionHandler (Problem Details)
+                               ├─ weather    WeatherService (units, clock), CityNames (shared city normalisation)
+                               ├─ favourites FavouriteService (clock, limit, tx) → FavouriteRepository (JdbcClient)
+                               │               └─ create only: WeatherProvider#locate
                                ├─ provider   WeatherProvider port (one bean, chosen by weather.provider.type)
                                │               ├─ OpenMeteoWeatherProvider (default) ──HTTPS──▶ Open-Meteo geocoding + forecast
                                │               │     └─ WeatherCache (geocoding / current / forecast entries, fail open)
@@ -16,7 +18,10 @@ UI / client ──HTTP /api/v1──▶ app (Spring Boot :8080)
                                ├──JDBC──▶ PostgreSQL 17   (system of record; schema via Flyway)
                                └──RESP──▶ Redis 7         (cache of upstream results; keys built by CacheKeys, always with a TTL)
 ```
-PostgreSQL is wired up but not used by any feature yet. Redis caches Open-Meteo results
+PostgreSQL is the system of record for saved favourites (table `favourite`, ADR 0008). Data
+access uses `JdbcClient` with explicit `TransactionOperations` boundaries, and no transaction is
+held across a provider call. Favourites are scoped by the opaque `X-Client-Id` header (ADR 0009;
+not authentication). Redis caches Open-Meteo results
 (ADR 0007). Within the TTLs, a repeated request makes 0 upstream calls, and a cache miss makes
 at most 2 (ADR 0006). Redis is optional at runtime: when it is down or holds bad data, the
 service behaves as if uncached.
@@ -25,11 +30,12 @@ service behaves as if uncached.
 | Path | Purpose |
 |------|---------|
 | `src/main/java/com/example/weather/` | Application code (`WeatherApplication`) |
-| `.../api/` | Cross-cutting `/api/**` web concerns: `RequestIdFilter`, `RequestIds`, `ApiCorsProperties`, `ApiWebConfig` (CORS) |
+| `.../api/` | Cross-cutting `/api/**` web concerns: `RequestIdFilter`, `RequestIds`, `ClientId` + `ClientIdArgumentResolver` (`X-Client-Id`, ADR 0009), `ApiCorsProperties`, `ApiWebConfig` (CORS, argument resolvers) |
 | `.../api/error/` | `ErrorCode` (closed set), `ProblemFactory`, global `ApiExceptionHandler` (only acts on `/api/`) |
-| `.../api/v1/` | v1 controllers (`WeatherController`, `OpenApiController`), query records, `dto/` response records |
-| `.../weather/` | Domain types (`Units`, `ConditionCode`, records), `WeatherService`, `UnitConverter`, `Clock` bean |
-| `.../provider/` | `WeatherProvider` port, its exceptions, `WeatherProviderProperties`, `WeatherProviderConfiguration` (selects the one bean), and `stub/StubWeatherProvider` |
+| `.../api/v1/` | v1 controllers (`WeatherController`, `FavouritesController`, `OpenApiController`), query and request-body records, `dto/` response records |
+| `.../weather/` | Domain types (`Units`, `ConditionCode`, records), `WeatherService`, `UnitConverter`, `CityNames`, `Clock` bean |
+| `.../favourites/` | `FavouriteService`, `FavouriteRepository` + `JdbcFavouriteRepository`, `FavouritesProperties`, `Favourite`, domain exceptions |
+| `.../provider/` | `WeatherProvider` port (`current`, `currentAt`, `forecast`, `locate`), its exceptions, `WeatherProviderProperties`, `WeatherProviderConfiguration` (selects the one bean), and `stub/StubWeatherProvider` |
 | `.../provider/openmeteo/` | Open-Meteo adapter: `OpenMeteoWeatherProvider` (HTTP, sanitised WARN logging), `OpenMeteoMapper`, `OpenMeteoWeatherCodes` |
 | `.../cache/` | `CacheKeys` (namespaced, validated Redis keys under `weather.cache.key-prefix`), `WeatherCacheProperties`, `WeatherCache` + `RedisWeatherCache` (typed entries, fail open), `CacheStore`/`RedisCacheStore` (Redis access), `CacheCodec` (versioned JSON), `WeatherCacheConfiguration` |
 | `src/main/resources/openapi/openapi-v1.json` | Hand-written OpenAPI 3.0.3 contract served at `/api/v1/openapi.json` |
@@ -41,8 +47,30 @@ service behaves as if uncached.
 - Path versioning `/api/v1`, additive-only within a version.
 - Errors: RFC 9457 `application/problem+json` with `code`, `requestId` and `errors` (validation only).
 - `X-Request-Id` on every `/api/` response. It is in the MDC as `requestId`, with one INFO access-log line per request.
-- CORS allow-list `WEATHER_API_CORS_ALLOWED_ORIGINS`, deny-by-default.
+- CORS allow-list `WEATHER_API_CORS_ALLOWED_ORIGINS`, deny-by-default. Methods are
+  `GET, POST, PUT, PATCH, DELETE, OPTIONS`, with `X-Request-Id` and `Location` exposed and no
+  credentials (ADR 0010, amending 0003).
+- Write endpoints (ADR 0010):
+  - `application/json` bodies through `@Valid @RequestBody`;
+  - an unreadable body → `400 VALIDATION_FAILED` with field `body`;
+  - create `201` + `Location`, `PATCH` (absent ≠ null), delete `204`;
+  - state conflicts → `409` with specific codes;
+  - optional response properties omitted when empty.
+- Client-scoped resources take a required `X-Client-Id` (`^[A-Za-z0-9._-]{1,64}$`), resolved
+  as the first handler parameter. It is a partition key, not a credential, and cross-client
+  access looks like `404` (ADR 0009).
 - Spec-first OpenAPI with drift and conformance tests (ADR 0002).
+
+## Persistence conventions (ADR 0008)
+- `JdbcClient` on `spring-boot-starter-jdbc`, with hand-written parameterised SQL and explicit
+  row mapping. No JPA or Spring Data.
+- Transactions use `TransactionOperations`, and are short. No transaction is held across
+  outbound I/O.
+- Invariants are enforced by named DB constraints. `DuplicateKeyException` maps to a `409`.
+  Per-client serialisation uses `pg_advisory_xact_lock(ns, hashtext(client_id))`.
+- Ids are application-generated UUIDs. Timestamps are `timestamptz` from the service `Clock`.
+- Migrations are new `V<n>__*.sql` files with unqualified names. pgjdbc
+  `logServerErrorDetail=false` keeps row values out of exception messages.
 
 ## Runtime environment
 `compose.yaml` (see ADR 0001): `postgres`, `redis`, plus `app` under the `app` profile.
@@ -60,6 +88,9 @@ Cache configuration (ADR 0007): `WEATHER_CACHE_ENABLED` (true), `WEATHER_CACHE_G
 `WEATHER_CACHE_KEY_PREFIX` (weather), and the global Lettuce timeouts `REDIS_TIMEOUT` and
 `REDIS_CONNECT_TIMEOUT` (500ms each). Readiness does not depend on Redis. The `/actuator/health`
 aggregate includes Boot's Redis indicator.
+
+Favourites configuration (ADR 0008): `WEATHER_FAVOURITES_MAX_PER_CLIENT` (20, range 1..100;
+startup fails outside it).
 
 ## Caching conventions (ADR 0007)
 - Explicit `WeatherCache` component called by the adapter, not `@Cacheable`. Values are
@@ -87,6 +118,7 @@ aggregate includes Boot's Redis indicator.
 | UI-backend API contracts | `api`, `api.error`, `api.v1`, `weather`, `provider` (stub) | 0002, 0003, 0004 | [docs/sdlc/ui-backend-api-contracts/](../sdlc/ui-backend-api-contracts/) |
 | Real weather provider | `provider`, `provider.openmeteo`, `provider.stub` (opt-in) | 0005, 0006 | [docs/sdlc/real-weather-provider/](../sdlc/real-weather-provider/) |
 | Redis weather caching | `cache`, `provider.openmeteo`, `provider` (`WeatherProvider#currentAt`), `weather` (`ObservedConditions`) | 0007 | [docs/sdlc/redis-weather-caching/](../sdlc/redis-weather-caching/) |
+| Saved favourite locations | `favourites`, `api` (`ClientId`, CORS), `api.v1` (`FavouritesController`), `api.error`, `provider` (`WeatherProvider#locate`), `weather` (`CityNames`), Flyway `V2` | 0008, 0009, 0010, 0011 | [docs/sdlc/saved-favourite-locations/](../sdlc/saved-favourite-locations/) |
 
 ## ADRs
 - [0001](../adr/0001-integration-tests-use-docker-compose.md) Integration tests use the Docker Compose services, not Testcontainers
@@ -96,3 +128,7 @@ aggregate includes Boot's Redis indicator.
 - [0005](../adr/0005-real-weather-provider-default-stub-opt-in.md) Open-Meteo adapter is the default WeatherProvider; the stub is opt-in
 - [0006](../adr/0006-outbound-http-to-weather-upstream.md) Outbound HTTP to the weather upstream: RestClient on the JDK HttpClient, bounded timeouts, no retries, sanitised logging, in-process fake for ITs
 - [0007](../adr/0007-redis-cache-for-upstream-results-fail-open.md) Redis cache for upstream weather results: typed JSON entries on StringRedisTemplate, per-kind TTLs, fail open, bounded Redis timeouts
+- [0008](../adr/0008-favourites-persistence-jdbcclient-unique-constraint-advisory-lock.md) Favourites persistence: JdbcClient, DB-enforced uniqueness, per-client advisory lock, no transaction across provider calls
+- [0009](../adr/0009-client-scoped-resources-via-x-client-id-header.md) Client-scoped resources via an opaque X-Client-Id header (no authentication)
+- [0010](../adr/0010-write-endpoint-conventions-and-cors-methods.md) Write-endpoint conventions and CORS for write methods (amends 0003)
+- [0011](../adr/0011-weather-provider-location-lookup.md) WeatherProvider gains a location-only lookup sharing the geocoding cache
