@@ -9,6 +9,9 @@ import java.time.LocalDate;
  *
  * <p>Failure contract for every adapter: an unknown city throws {@link LocationNotFoundException};
  * any I/O error, timeout or upstream 5xx throws {@link WeatherProviderUnavailableException}.
+ * Exception messages must not contain credentials or URLs with query strings. The API layer logs
+ * only the exception and cause class names for a 503, so an adapter that needs more detail must
+ * log it itself, sanitised.
  */
 public interface WeatherProvider {
 

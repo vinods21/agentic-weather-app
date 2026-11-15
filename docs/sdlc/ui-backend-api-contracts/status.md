@@ -1,6 +1,6 @@
 # ui-backend-api-contracts: SDLC status
 Request: build the api contracts between ui and backend
-Branch: feature/ui-backend-api-contracts · PR: #2 https://github.com/vinods21/agentic-weather-app/pull/2
+Branch: feature/ui-backend-api-contracts · PR: #2 https://github.com/vinods21/agentic-weather-app/pull/2 (merged) · follow-up #3 https://github.com/vinods21/agentic-weather-app/pull/3
 ## Phases
 - [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [x] review round 1  - [ ] review round 2
 ## Log
@@ -19,6 +19,14 @@ Branch: feature/ui-backend-api-contracts · PR: #2 https://github.com/vinods21/a
 - `ProblemFactory.build` has an extra overload taking `HttpHeaders` (used for the 405 `Allow` header).
 - `StubWeatherProvider#forecast` throws `IllegalArgumentException` for `days` outside 1..7 (unreachable through the API, which validates first).
 - Extra unit tests beyond the design list: `QueryRecordsTest`, `ApiExceptionHandlerTest`, `RequestIdFilterTest` (servlet mocks, no Spring context).
-- D-1 fix: `ForecastQuery.days` is a `String` (validated by `@DaysParam`/`DaysParamValidator`, read via `resolvedDays()`) instead of `Integer`. Parsing is strict decimal after stripping surrounding whitespace, so values Spring's converter used to accept (e.g. hex `0x3`, `#3`, or internal whitespace) are now 400 with the non-integer message. The binding-failure branch for `days` in `ApiExceptionHandler` is now unreachable but kept as a defensive fallback.
+- D-1 fix: `ForecastQuery.days` is a `String` (validated by `@DaysParam`/`DaysParamValidator`, read via `resolvedDays()`) instead of `Integer`. Parsing is strict decimal after stripping surrounding whitespace, so values Spring's converter used to accept (e.g. hex `0x3`, `#3`, or internal whitespace) are now 400 with the non-integer message. After PR #2 review: only ASCII `[+-]?[0-9]+` is accepted (as documented on the `Days` parameter), and the unreachable `days` binding-failure branch in `ApiExceptionHandler` was removed.
+- `ProviderFailureIT` uses `@MockitoSpyBean` instead of the `@MockitoBean` the design named, so unstubbed calls keep the stub's real behaviour; design.md and ADR 0004 wording updated to match.
 - 2026-11-15 orchestrator: re-checked build + it (104 IT, 0 fail), no Testcontainers; pushed and opened PR #2.
 - 2026-11-15 review round 1: READY FOR HUMAN MERGE (0 blocker, 0 major, 3 minor, 3 nit) https://github.com/vinods21/agentic-weather-app/pull/2#pullrequestreview-5909139300. Loop stopped; round 2 not needed.
+- 2026-11-15 developer: fixed all 6 PR #2 review points (ASCII-only days + spec wording, fixed DaysParam range, dead days branch removed, 503 WARN logs class names only, TypeMismatchException -> 400 VALIDATION_FAILED, @MockitoSpyBean docs/deviation); build 147 unit / it 106 IT, 0 fail; not pushed.
+- 2026-11-15 tester: re-test after PR #2 round-1 fixes @ 286b706: unit 148/0, integration 107 passed/0 failed/0 skipped; all AC-1..AC-23 PASS; added ProviderFailureIT#ac13_edge_credentialsInProviderMessageAreNotLogged + ApiExceptionHandlerTest#upstreamUnavailableWithoutCauseLogsNone (1348a0c); TypeMismatchException 400 handler unreachable via current endpoints (unit-tested only); observation: handler also catches ConversionNotSupportedException (500 -> 400), unreachable today; test-report.md updated
+- 2026-11-15 orchestrator: PR #2 was merged by a human at 04:50Z (merge a86ff72, head 86504bd) before the round-1 fix commits (0fabbfd..fb09223) were pushed. Round-2 review not posted (fixes not in PR #2); reviewer pre-review: all 6 round-1 points resolved, 1 new minor (ConversionNotSupportedException mapped to 400). Human chose: fix that minor, then open a follow-up PR.
+- 2026-11-15 developer: fixed pre-review minor @ 8ea2431: ConversionNotSupportedException/MethodArgumentConversionNotSupportedException now delegate to the 500 INTERNAL_ERROR path (was 400); +2 unit tests, MethodArgumentTypeMismatchException still 400; build 150 unit / it 107 IT, 0 fail; not pushed.
+- 2026-11-15 tester: re-test @ 2cb3e3e (fix 8ea2431 + merge of main 372aa3b): unit 150/0, integration 107 passed/0 failed/0 skipped; all AC-1..AC-23 PASS; ConversionNotSupportedException observation resolved (500 INTERNAL_ERROR, unit-tested; plain TypeMismatchException still 400); no new tests needed; test-report.md updated
+- 2026-11-15 orchestrator: re-checked build + it (107 IT, 0 fail), no Testcontainers; opened follow-up PR #3 with round-1 fixes + ConversionNotSupportedException fix.
+- 2026-11-15 review PR #3: READY FOR HUMAN MERGE (0 blocker, 0 major, 1 minor docs-only, 2 nit) https://github.com/vinods21/agentic-weather-app/pull/3#pullrequestreview-5909279827. All 6 PR #2 round-1 points resolved. Stopping for human merge.

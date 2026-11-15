@@ -272,7 +272,7 @@ or Redis keys, so no `@AfterEach` cleanup is needed beyond the base class.
 | `ForecastIT` | 5, 6, 10 (forecast) | For AC-5, compute today's UTC date before and after the call and accept either (midnight race) |
 | `ValidationIT` | 7 (parameterized over the 8 cases), 8 | |
 | `RoutingErrorsIT` | 11, 12 | |
-| `ProviderFailureIT` | 13, 14 | `@MockitoBean WeatherProvider` (Spring Framework 6.2, already in `spring-boot-starter-test`); `@ExtendWith(OutputCaptureExtension.class)` to assert the WARN/ERROR lines contain the request id (send a fixed `X-Request-Id`), and the stack trace for 500 |
+| `ProviderFailureIT` | 13, 14 | `@MockitoSpyBean WeatherProvider` (spy on the stub so unstubbed calls keep real behaviour; Spring Framework 6.2, already in `spring-boot-starter-test`); `@ExtendWith(OutputCaptureExtension.class)` to assert the WARN/ERROR lines contain the request id (send a fixed `X-Request-Id`), and the stack trace for 500 |
 | `RequestIdIT` | 15, 16 | One success and one error per case. For 16, assert the header parses as `UUID` and equals the body `requestId` |
 | `CorsIT` | 17, 18 (evil origin) | `@TestPropertySource(properties = "weather.api.cors.allowed-origins=http://localhost:5173")` |
 | `CorsDefaultDenyIT` | 18 (unset) | `@TestPropertySource(properties = "weather.api.cors.allowed-origins=")`. This forces "unset" even if the env var is exported from `.env` |

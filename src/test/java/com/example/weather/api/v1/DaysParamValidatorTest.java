@@ -32,8 +32,9 @@ class DaysParamValidatorTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"#3", "0X3", "3L", "3.0", "1e0", "3,4", "--3", "+-3", " 3", "2147483648", "-2147483649"})
-    @DisplayName("AC-7 (unit, D-1 edge): other non-decimal forms are rejected with the non-integer message")
+    @ValueSource(strings = {"#3", "0X3", "3L", "3.0", "1e0", "3,4", "--3", "+-3", " 3", "2147483648", "-2147483649",
+            "٣", "３", "१"})
+    @DisplayName("AC-7 (unit, D-1 edge): other non-decimal forms (incl. non-ASCII digits) are rejected with the non-integer message")
     void ac7_nonDecimalFormsRejected(String days) {
         assertThat(messages(days)).containsExactly(DaysParam.NOT_AN_INTEGER);
     }
@@ -51,6 +52,15 @@ class DaysParamValidatorTest {
     void ac5_lenientButDecimalFormsAccepted(String days) {
         assertThat(messages(days)).isEmpty();
         assertThat(new ForecastQuery("London", null, days).resolvedDays()).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("AC-7 (unit): both days messages state the contract range 1..7")
+    void ac7_messagesMatchContractRange() {
+        assertThat(DaysParam.MIN).isEqualTo(1);
+        assertThat(DaysParam.MAX).isEqualTo(7);
+        assertThat(DaysParam.NOT_AN_INTEGER).isEqualTo("must be an integer between 1 and 7");
+        assertThat(DaysParam.OUT_OF_RANGE).isEqualTo("must be between 1 and 7");
     }
 
     @Test

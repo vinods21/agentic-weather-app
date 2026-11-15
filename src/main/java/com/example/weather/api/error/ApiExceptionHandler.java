@@ -10,6 +10,8 @@ import java.util.Comparator;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.ConversionNotSupportedException;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ProblemDetail;
@@ -36,7 +38,6 @@ public class ApiExceptionHandler {
     static final String NOT_FOUND_DETAIL = "No endpoint exists at this path.";
     static final String UPSTREAM_DETAIL = "The weather provider is temporarily unavailable.";
     static final String INTERNAL_DETAIL = "An unexpected error occurred.";
-    static final String DAYS_TYPE_MISMATCH = "must be an integer between 1 and 7";
     static final String INVALID_VALUE = "has an invalid value";
 
     private static final Comparator<FieldErrorDto> ERROR_ORDER =
@@ -51,6 +52,27 @@ public class ApiExceptionHandler {
                 .distinct()
                 .sorted(ERROR_ORDER)
                 .toList();
+        return ProblemFactory.build(ErrorCode.VALIDATION_FAILED, VALIDATION_DETAIL, request, errors);
+    }
+
+    /**
+     * A {@code @RequestParam}/{@code @PathVariable} conversion failure (covers
+     * {@code MethodArgumentTypeMismatchException}). Spring's message names classes and echoes the
+     * value, so only the parameter name and a fixed message are returned.
+     * {@link ConversionNotSupportedException} (and {@code MethodArgumentConversionNotSupportedException})
+     * is a subclass but means no converter is registered, a server-side fault, so it goes to the
+     * 500 path instead.
+     */
+    @ExceptionHandler(TypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> handleTypeMismatch(TypeMismatchException ex, HttpServletRequest request)
+            throws Exception {
+        guard(ex, request);
+        if (ex instanceof ConversionNotSupportedException) {
+            return handleUnexpected(ex, request);
+        }
+        List<FieldErrorDto> errors = ex.getPropertyName() == null
+                ? List.of()
+                : List.of(new FieldErrorDto(ex.getPropertyName(), INVALID_VALUE));
         return ProblemFactory.build(ErrorCode.VALIDATION_FAILED, VALIDATION_DETAIL, request, errors);
     }
 
@@ -89,8 +111,11 @@ public class ApiExceptionHandler {
     public ResponseEntity<ProblemDetail> handleUpstreamUnavailable(
             WeatherProviderUnavailableException ex, HttpServletRequest request) throws Exception {
         guard(ex, request);
-        log.warn("Weather provider unavailable requestId={} path={} error={}: {}",
-                RequestIds.current(request), ApiPaths.path(request), ex.getClass().getName(), ex.getMessage());
+        // Only class names: provider messages may carry upstream URLs or credentials, so they are
+        // never logged here (adapters log their own sanitised details).
+        String cause = ex.getCause() == null ? "none" : ex.getCause().getClass().getName();
+        log.warn("Weather provider unavailable requestId={} path={} error={} cause={}",
+                RequestIds.current(request), ApiPaths.path(request), ex.getClass().getName(), cause);
         return ProblemFactory.build(ErrorCode.UPSTREAM_UNAVAILABLE, UPSTREAM_DETAIL, request, null);
     }
 
@@ -116,7 +141,8 @@ public class ApiExceptionHandler {
         String message;
         if (error.isBindingFailure()) {
             // Spring's default type-mismatch text contains class names; never use it or echo the value.
-            message = "days".equals(error.getField()) ? DAYS_TYPE_MISMATCH : INVALID_VALUE;
+            // (days is bound as a String and checked by @DaysParam, so it never gets here.)
+            message = INVALID_VALUE;
         } else {
             message = error.getDefaultMessage() == null ? INVALID_VALUE : error.getDefaultMessage();
         }

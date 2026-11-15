@@ -90,7 +90,7 @@
         "name": "days",
         "in": "query",
         "required": false,
-        "description": "Number of forecast days.",
+        "description": "Number of forecast days. Accepted form: optional surrounding whitespace, then an optional + or - sign and ASCII digits 0-9 only (e.g. 3, 03, +3); any other form (non-ASCII digits, hex, decimals, exponents) is 400 VALIDATION_FAILED. An empty value is treated as absent.",
         "schema": { "type": "integer", "format": "int32", "minimum": 1, "maximum": 7, "default": 5 }
       },
       "RequestId": {
