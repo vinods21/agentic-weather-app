@@ -43,7 +43,7 @@ public class ApiExceptionHandler {
 
     static final String VALIDATION_DETAIL = "One or more request parameters are invalid.";
     static final String NOT_FOUND_DETAIL = "No endpoint exists at this path.";
-    static final String UPSTREAM_DETAIL = "The weather provider is temporarily unavailable.";
+    public static final String UPSTREAM_DETAIL = "The weather provider is temporarily unavailable.";
     static final String INTERNAL_DETAIL = "An unexpected error occurred.";
     static final String INVALID_VALUE = "has an invalid value";
     static final String BODY_FIELD = "body";
