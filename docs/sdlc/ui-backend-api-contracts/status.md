@@ -23,3 +23,4 @@ Branch: feature/ui-backend-api-contracts · PR: #2 https://github.com/vinods21/a
 - `ProviderFailureIT` uses `@MockitoSpyBean` instead of the `@MockitoBean` the design named, so unstubbed calls keep the stub's real behaviour; design.md and ADR 0004 wording updated to match.
 - 2026-11-15 orchestrator: re-checked build + it (104 IT, 0 fail), no Testcontainers; pushed and opened PR #2.
 - 2026-11-15 review round 1: READY FOR HUMAN MERGE (0 blocker, 0 major, 3 minor, 3 nit) https://github.com/vinods21/agentic-weather-app/pull/2#pullrequestreview-5909139300. Loop stopped; round 2 not needed.
+- 2026-11-15 developer: fixed all 6 PR #2 review points (ASCII-only days + spec wording, fixed DaysParam range, dead days branch removed, 503 WARN logs class names only, TypeMismatchException -> 400 VALIDATION_FAILED, @MockitoSpyBean docs/deviation); build 147 unit / it 106 IT, 0 fail; not pushed.
