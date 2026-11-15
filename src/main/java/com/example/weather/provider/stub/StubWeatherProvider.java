@@ -22,14 +22,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import org.springframework.stereotype.Component;
 
 /**
- * Deterministic in-process provider with fixed data for five cities (ADR 0004). It is the
- * default and only {@link WeatherProvider} bean until a real adapter is added. City lookup is
- * case-insensitive; any other city is "not found".
+ * Deterministic in-process provider with fixed data for five cities. Opt-in for offline local
+ * development ({@code WEATHER_PROVIDER=stub}) and the {@code it} profile (ADR 0005); created by
+ * {@code WeatherProviderConfiguration}, not component-scanned. City lookup is case-insensitive;
+ * any other city is "not found".
  */
-@Component
 public class StubWeatherProvider implements WeatherProvider {
 
     /** Number of forecast days the stub holds per city. */
