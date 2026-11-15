@@ -38,3 +38,6 @@ management:
 weather:
   cache:
     key-prefix: ${WEATHER_CACHE_KEY_PREFIX:weather}
+  api:
+    cors:
+      allowed-origins: ${WEATHER_API_CORS_ALLOWED_ORIGINS:}   # comma-separated; empty = deny all
