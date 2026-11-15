@@ -7,6 +7,7 @@ Branch: feature/weather-for-all-favourites · PR: (none yet)
 - 2026-11-15 pm: requirements.md written (AC-1..AC-24)
 - 2026-11-15 architect: design.md written; ADRs 0012 (currentAtLocation, amends 0011), 0013 (bounded fan-out/deadline/MDC), 0014 (per-item errors, amends 0003); overview.md updated
 - 2026-11-15 developer: implemented design steps 1-7 (currentAtLocation, WeatherService#currentAt, BoundedFanOut, FavouritesWeatherProperties + config, FavouriteWeatherService, GET /api/v1/favourites/weather, OpenAPI) with unit tests; ./gradlew build green; scripts/test-env.sh it green (394 existing ITs); no migration; AC-mapped ITs (steps 8-9) left to the tester
+- 2026-11-15 tester: design steps 8-9 done (7 FavouritesWeather*IT classes, 47 ITs; support.FavouriteRows, support.InFlightResponder; 17 edge unit tests); unit 576/576, IT 441/441 (2 green full runs after fixing a Postgres connection-limit issue in the new ITs with @DirtiesContext); timing-sensitive ITs 5/5 repeat runs green; no product bugs; test-report.md written
 
 ## Deviations from design
 - Default-method unit test is named `provider.WeatherProviderCurrentAtLocationDefaultTest` (the design allowed `WeatherProviderDefaultsTest` or a new class).
