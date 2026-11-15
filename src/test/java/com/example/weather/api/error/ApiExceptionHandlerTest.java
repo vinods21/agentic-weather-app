@@ -20,12 +20,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.TypeMismatchException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 /** Unit test: plain handler calls with mock servlet requests, no Spring context, no Docker. */
@@ -66,6 +68,48 @@ class ApiExceptionHandlerTest {
                 new FieldErrorDto("city", "must not be blank"),
                 new FieldErrorDto("days", "has an invalid value"),
                 new FieldErrorDto("units", "must be one of: metric, imperial")));
+    }
+
+    @Test
+    @DisplayName("AC-7 (unit): a request-param type mismatch is 400 VALIDATION_FAILED with a fixed message, no class names")
+    void methodArgumentTypeMismatchIsValidationFailed() throws Exception {
+        MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
+                "xyz-bad", Integer.class, "days", null, new NumberFormatException("For input string: \"xyz-bad\""));
+
+        ResponseEntity<ProblemDetail> response = handler.handleTypeMismatch(ex, apiRequest("/api/v1/weather/forecast"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
+        ProblemDetail body = response.getBody();
+        assertThat(body.getDetail()).isEqualTo("One or more request parameters are invalid.");
+        assertThat(body.getProperties())
+                .containsEntry("code", "VALIDATION_FAILED")
+                .containsEntry("requestId", "ui-abc-123")
+                .containsEntry("errors", List.of(new FieldErrorDto("days", "has an invalid value")));
+        assertThat(body.toString())
+                .doesNotContain("java.")
+                .doesNotContain("Integer")
+                .doesNotContain("xyz-bad")
+                .doesNotContain("NumberFormat");
+    }
+
+    @Test
+    @DisplayName("Edge (unit): a type mismatch without a property name is 400 with an empty errors list")
+    void typeMismatchWithoutPropertyName() throws Exception {
+        ResponseEntity<ProblemDetail> response = handler.handleTypeMismatch(
+                new TypeMismatchException("abc", Integer.class), apiRequest("/api/v1/weather/forecast"));
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().getProperties())
+                .containsEntry("code", "VALIDATION_FAILED")
+                .containsEntry("errors", List.of());
+    }
+
+    @Test
+    void typeMismatchOutsideApiIsRethrown() {
+        TypeMismatchException ex = new TypeMismatchException("abc", Integer.class);
+        assertThatThrownBy(() -> handler.handleTypeMismatch(ex, new MockHttpServletRequest("GET", "/actuator/x")))
+                .isSameAs(ex);
     }
 
     @Test
