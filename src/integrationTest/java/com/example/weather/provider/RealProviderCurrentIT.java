@@ -95,6 +95,8 @@ class RealProviderCurrentIT extends RealProviderIntegrationTestBase {
     @DisplayName("AC-7: imperial converts in WeatherService (52.2 F, 9.2 mph); the upstream is always asked for celsius and m/s")
     void ac7_imperialConvertedLocallyUpstreamAlwaysMetric() {
         ResponseEntity<String> metric = get("/api/v1/weather/current?city=London");
+        // Setup only (redis-weather-caching AC-25): clear the cache so the second request reaches the upstream.
+        deleteRunRedisKeys();
         ResponseEntity<String> imperial = get("/api/v1/weather/current?city=London&units=imperial");
 
         assertThat(metric.getStatusCode()).isEqualTo(HttpStatus.OK);

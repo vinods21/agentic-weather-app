@@ -2,6 +2,7 @@ package com.example.weather.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.example.weather.cache.WeatherCache;
 import com.example.weather.provider.openmeteo.OpenMeteoWeatherProvider;
 import com.example.weather.provider.stub.StubWeatherProvider;
 import java.net.URI;
@@ -41,6 +42,8 @@ class WeatherProviderSelectionIT {
                 .withInitializer(new ConfigDataApplicationContextInitializer())
                 .withConfiguration(AutoConfigurations.of(JacksonAutoConfiguration.class,
                         HttpMessageConvertersAutoConfiguration.class, RestClientAutoConfiguration.class))
+                // Setup only (redis-weather-caching AC-25): the provider factory now takes a WeatherCache.
+                .withBean(WeatherCache.class, WeatherCache::disabled)
                 .withUserConfiguration(WeatherProviderConfiguration.class);
     }
 
