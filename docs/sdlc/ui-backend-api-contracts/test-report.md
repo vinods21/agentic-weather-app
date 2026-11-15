@@ -1,5 +1,5 @@
 # UI-backend API contracts: Test report
-Branch: feature/ui-backend-api-contracts @ 1348a0c (code under test at 286b706 = PR #2 round-1 fixes; new tests in 1348a0c) · Date: 2026-11-15 (re-run after review round 1) · Env: docker compose (postgres:17, redis:7)
+Branch: feature/ui-backend-api-contracts @ 2cb3e3e (code under test at 8ea2431 = ConversionNotSupportedException fix, on top of the 372aa3b merge of main) · Date: 2026-11-15 (re-run after the pre-review minor fix) · Env: docker compose (postgres:17, redis:7)
 
 Commands: `./gradlew test` (unit) and `scripts/test-env.sh it` (integration, against the running
 compose services; no Testcontainers). Integration tests live in
@@ -16,14 +16,14 @@ double-encoded. The tests create no rows and no Redis keys.
 | AC-4 | `CurrentWeatherIT#ac4_cityIsTrimmed`, `QueryValidationTest#lengthAfterStrip` | integration, unit | PASS |
 | AC-5 | `ForecastIT#ac5_threeDayForecast`, `ForecastIT#ac5_edge_boundaryDays` (1, 7), `DaysParsingIT#ac5_lenientDecimalFormsAccepted`, `QueryValidationTest#validDays`, `DaysParamValidatorTest#ac5_lenientButDecimalFormsAccepted` | integration, unit | PASS |
 | AC-6 | `ForecastIT#ac6_defaultsToFiveDaysMetric`, `ForecastIT#edge_emptyDaysIsDefault`, `DaysParamValidatorTest#ac6_absentOrEmptyIsDefault` | integration, unit | PASS |
-| AC-7 | `ValidationIT#ac7_invalidParameter` (8 cases), `DaysParsingIT#ac7_nonDecimalDaysRejected` (8 cases, incl. Arabic-Indic `%D9%A3` and fullwidth `%EF%BC%93`), `#ac7_repeatedDaysRejected`, `QueryValidationTest#blankCityInvalid/#invalidUnits/#invalidDays/#nullCityInvalid/#nonIntegerDaysInvalid`, `DaysParamValidatorTest#ac7_nonDecimalFormsRejected` (incl. `٣`, `３`, `१`), `#ac7_outOfRangeIntegersGetRangeMessage/#ac7_messagesMatchContractRange`, `ApiExceptionHandlerTest#methodArgumentTypeMismatchIsValidationFailed/#typeMismatchWithoutPropertyName/#typeMismatchOutsideApiIsRethrown` (type-mismatch handler, unit only: unreachable via current endpoints) | integration, unit | PASS |
+| AC-7 | `ValidationIT#ac7_invalidParameter` (8 cases), `DaysParsingIT#ac7_nonDecimalDaysRejected` (8 cases, incl. Arabic-Indic `%D9%A3` and fullwidth `%EF%BC%93`), `#ac7_repeatedDaysRejected`, `QueryValidationTest#blankCityInvalid/#invalidUnits/#invalidDays/#nullCityInvalid/#nonIntegerDaysInvalid`, `DaysParamValidatorTest#ac7_nonDecimalFormsRejected` (incl. `٣`, `３`, `१`), `#ac7_outOfRangeIntegersGetRangeMessage/#ac7_messagesMatchContractRange`, `ApiExceptionHandlerTest#methodArgumentTypeMismatchIsValidationFailed/#typeMismatchWithoutPropertyName/#typeMismatchOutsideApiIsRethrown` (type-mismatch handler, unit only: unreachable via current endpoints; the 400 is not used for `ConversionNotSupportedException`, see AC-14) | integration, unit | PASS |
 | AC-8 | `ValidationIT#ac8_allViolationsReported`, `ValidationIT#edge_typeMismatchCombinedWithOtherViolations` (D-1), `DaysParsingIT#ac8_hexDaysCollectedWithOthers`, `QueryValidationTest#allViolationsCollected/#nonIntegerDaysCollectedWithOthers` | integration, unit | PASS |
 | AC-9 | `CurrentWeatherIT#ac9_hundredCharacterCityIsInclusive`, `#ac9_edge_lengthIsCheckedAfterTrimming`, `QueryValidationTest#cityLengthIsInclusive` | integration, unit | PASS |
 | AC-10 | `CurrentWeatherIT#ac10_unknownCityCurrent`, `ForecastIT#ac10_unknownCityForecast` | integration | PASS |
 | AC-11 | `RoutingErrorsIT#ac11_unknownApiPath`, `#ac11_edge_instanceHasNoQueryString`, `ApiPathsTest#pathExcludesQuery` | integration, unit | PASS |
 | AC-12 | `RoutingErrorsIT#ac12_postIsMethodNotAllowed`, `#ac12_edge_deleteIsMethodNotAllowed` | integration | PASS |
 | AC-13 | `ProviderFailureIT#ac13_currentUpstreamUnavailable`, `#ac13_forecastUpstreamUnavailable`, `#ac13_edge_credentialsInProviderMessageAreNotLogged` (`@MockitoSpyBean` + `OutputCaptureExtension`), `ApiExceptionHandlerTest#upstreamUnavailableWarnLogsNoProviderMessage/#upstreamUnavailableWithoutCauseLogsNone` | integration, unit | PASS |
-| AC-14 | `ProviderFailureIT#ac14_unexpectedErrorIsSanitised` | integration | PASS |
+| AC-14 | `ProviderFailureIT#ac14_unexpectedErrorIsSanitised`, `ApiExceptionHandlerTest#conversionNotSupportedIsInternalError/#methodArgumentConversionNotSupportedIsInternalError` (no converter -> 500 `INTERNAL_ERROR`, sanitised body, ERROR log) | integration, unit | PASS |
 | AC-15 | `RequestIdIT#ac15_echoedOnSuccess` (current, forecast, openapi.json), `#ac15_echoedOnError` (400, 404 city, 404 path), `#ac15_echoedOn405` | integration | PASS |
 | AC-16 | `RequestIdIT#ac16_generatedWhenMissingOnSuccess`, `#ac16_generatedWhenMissingOnError`, `#ac16_invalidIdIsReplaced`, `#ac16_edge_lengthLimit`, `#ac16_edge_idsAreFresh` | integration | PASS |
 | AC-17 | `CorsIT#ac17_allowedOriginPreflight`, `#ac17_edge_actualRequestFromAllowedOrigin` | integration | PASS |
@@ -35,7 +35,22 @@ double-encoded. The tests create no rows and no Redis keys.
 | AC-23 | `HealthRegressionIT#ac23_healthUnaffected`, `ApiPathsTest#nonApiPaths` | integration, unit | PASS |
 
 ## Summary
-Re-run after the PR #2 round-1 fixes (0fabbfd, d93f1af, 7e1b6d7, bf8dc0e, 9bff0de, 267206f, 286b706):
+**Latest run (HEAD 2cb3e3e, code at 8ea2431 + merge of main 372aa3b):**
+- **Unit** (`./gradlew test --rerun-tasks`): **150 passed / 0 failed / 0 skipped**. That is the 148
+  below plus the developer's 2 new `ApiExceptionHandlerTest` cases for
+  `ConversionNotSupportedException` and `MethodArgumentConversionNotSupportedException`. Both assert
+  500 `INTERNAL_ERROR`, `application/problem+json`, a fixed detail, no `errors` key, no leaked
+  value/class names, and an ERROR log line with the request id.
+  `#methodArgumentTypeMismatchIsValidationFailed` still asserts that a plain
+  `MethodArgumentTypeMismatchException` gets 400 `VALIDATION_FAILED`.
+- **Integration** (`scripts/test-env.sh it`): **107 passed / 0 failed / 0 skipped**.
+- **All 23 ACs pass.** No open product defects. I added no tests this round. The fix is covered
+  at the unit level and cannot be reached over HTTP (see risks). The merge of main (372aa3b)
+  changed no files compared with fb09223, because main held only the earlier PR #2 head.
+- I found no Testcontainers, `@ServiceConnection` or docker-java usage. The only matches are the
+  "never use" comments in `IntegrationTestBase` and `build.gradle.kts`.
+
+Previous run, after the PR #2 round-1 fixes (0fabbfd, d93f1af, 7e1b6d7, bf8dc0e, 9bff0de, 267206f, 286b706):
 - **Unit** (`./gradlew test`): **148 passed / 0 failed / 0 skipped**. 147 are the developer's after
   the fixes (139 earlier + non-ASCII digit cases, the contract-range check, three type-mismatch
   handler tests and the 503 log-redaction test); 1 is new from me:
@@ -81,13 +96,13 @@ integration 92/0/1 skipped (D-1).
   `TypeMismatchException` nor a `BindException` binding failure can come out of a v1 request. The
   `handleTypeMismatch` handler and the `isBindingFailure()` branch in `toDto` are defensive, and only
   `ApiExceptionHandlerTest` covers them.
-- **Observation (not filed as a defect, currently unreachable):** `@ExceptionHandler(TypeMismatchException.class)`
-  also matches its subclass `ConversionNotSupportedException` (and
-  `MethodArgumentConversionNotSupportedException`). That is a server-side "no converter
-  registered" error, which Spring maps to 500 by default, but under `/api/` it would now become
-  400 `VALIDATION_FAILED`. If a typed parameter is ever added without a converter, the client
-  would be blamed. The fix is a one-line `instanceof ConversionNotSupportedException` rethrow or
-  500. That is the developer's call, and I left no test pinning it either way.
+- **Observation RESOLVED in 8ea2431 and verified:** `@ExceptionHandler(TypeMismatchException.class)`
+  also matched its subclasses `ConversionNotSupportedException` and
+  `MethodArgumentConversionNotSupportedException`, so a missing-converter server fault would have
+  been returned as 400 `VALIDATION_FAILED`. `handleTypeMismatch` now hands those to
+  `handleUnexpected` (500 `INTERNAL_ERROR`). Two unit tests pin this, and a plain type mismatch
+  still gets 400. Like the 400 path, it is unit-tested only because no current endpoint has a
+  typed parameter.
 - Non-ASCII digits in `days`: resolved by 0fabbfd (ASCII `[+-]?[0-9]+` only), now covered by unit
   and IT cases.
 - **Access-log content** (NFR: one INFO line per request with method, path, status, duration and
