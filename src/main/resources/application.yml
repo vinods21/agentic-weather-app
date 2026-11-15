@@ -7,6 +7,10 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:weather}
     username: ${POSTGRES_USER:weather}
     password: ${POSTGRES_PASSWORD:}
+    hikari:
+      data-source-properties:
+        # ADR 0008 §8: keep the server's "Detail:" text (offending values) out of exception messages.
+        logServerErrorDetail: false
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -39,6 +43,9 @@ management:
         enabled: true
 
 weather:
+  favourites:
+    # Saved favourites (ADR 0008): maximum favourites per X-Client-Id, 1..100.
+    max-per-client: ${WEATHER_FAVOURITES_MAX_PER_CLIENT:20}
   cache:
     key-prefix: ${WEATHER_CACHE_KEY_PREFIX:weather}
     # Weather cache (ADR 0007): only the Open-Meteo adapter is cached; fails open.
