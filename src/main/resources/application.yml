@@ -41,3 +41,10 @@ weather:
   api:
     cors:
       allowed-origins: ${WEATHER_API_CORS_ALLOWED_ORIGINS:}   # comma-separated; empty = deny all
+  provider:
+    type: ${WEATHER_PROVIDER:open-meteo}            # stub | open-meteo (ADR 0005)
+    connect-timeout: ${WEATHER_PROVIDER_CONNECT_TIMEOUT:2s}
+    read-timeout: ${WEATHER_PROVIDER_READ_TIMEOUT:3s}
+    open-meteo:
+      geocoding-base-url: ${WEATHER_PROVIDER_GEOCODING_BASE_URL:https://geocoding-api.open-meteo.com}
+      forecast-base-url: ${WEATHER_PROVIDER_FORECAST_BASE_URL:https://api.open-meteo.com}

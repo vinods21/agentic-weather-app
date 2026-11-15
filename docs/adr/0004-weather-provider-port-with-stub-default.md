@@ -1,5 +1,5 @@
 # 0004. WeatherProvider port with a deterministic in-process stub as the default adapter
-Date: 2026-11-15 · Status: Accepted · Feature: ui-backend-api-contracts
+Date: 2026-11-15 · Status: Superseded by 0005 · Feature: ui-backend-api-contracts
 
 ## Context
 The UI contract has to be built and tested end to end before any real upstream weather API has
