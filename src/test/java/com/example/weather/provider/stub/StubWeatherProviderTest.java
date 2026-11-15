@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.example.weather.provider.LocationNotFoundException;
 import com.example.weather.weather.CurrentConditions;
 import com.example.weather.weather.DailyForecast;
+import com.example.weather.weather.Location;
 import com.example.weather.weather.LocationForecast;
 import java.time.LocalDate;
 import java.util.List;
@@ -80,5 +81,17 @@ class StubWeatherProviderTest {
     void forecastRejectsOutOfRangeDays() {
         assertThatThrownBy(() -> provider.forecast("London", START, 0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> provider.forecast("London", START, 8)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void locateReturnsTheFixedLocationCaseInsensitively() {
+        assertThat(provider.locate("  london ")).isEqualTo(new Location("London", "GB", 51.5074, -0.1278));
+        assertThat(provider.locate("NEW YORK")).isEqualTo(provider.current("New York").location());
+    }
+
+    @Test
+    void locateRejectsUnknownCities() {
+        assertThatThrownBy(() -> provider.locate("Atlantis"))
+                .isInstanceOfSatisfying(LocationNotFoundException.class, e -> assertThat(e.city()).isEqualTo("Atlantis"));
     }
 }

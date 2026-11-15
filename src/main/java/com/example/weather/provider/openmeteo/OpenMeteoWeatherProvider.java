@@ -104,6 +104,12 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
         return fetchCurrent(location);
     }
 
+    /** Geocoding only, through the cache (ADR 0011 §2): at most 1 upstream call, no forecast call. */
+    @Override
+    public Location locate(String city) {
+        return geocode(cache.session(), city);
+    }
+
     @Override
     public ObservedConditions currentAt(String city, Instant now) {
         WeatherCache.Session session = cache.session();
