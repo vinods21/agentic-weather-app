@@ -2,7 +2,7 @@
 Request: build the api contracts between ui and backend
 Branch: feature/ui-backend-api-contracts · PR: #2 https://github.com/vinods21/agentic-weather-app/pull/2
 ## Phases
-- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [ ] review round 1  - [ ] review round 2
+- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [x] review round 1  - [ ] review round 2
 ## Log
 - 2026-11-15: run started. `scripts/test-env.sh up` failed: Docker daemon not running (npipe docker_engine not found).
 - 2026-11-15 pm: requirements.md written (AC-1..AC-23)
@@ -21,3 +21,4 @@ Branch: feature/ui-backend-api-contracts · PR: #2 https://github.com/vinods21/a
 - Extra unit tests beyond the design list: `QueryRecordsTest`, `ApiExceptionHandlerTest`, `RequestIdFilterTest` (servlet mocks, no Spring context).
 - D-1 fix: `ForecastQuery.days` is a `String` (validated by `@DaysParam`/`DaysParamValidator`, read via `resolvedDays()`) instead of `Integer`. Parsing is strict decimal after stripping surrounding whitespace, so values Spring's converter used to accept (e.g. hex `0x3`, `#3`, or internal whitespace) are now 400 with the non-integer message. The binding-failure branch for `days` in `ApiExceptionHandler` is now unreachable but kept as a defensive fallback.
 - 2026-11-15 orchestrator: re-checked build + it (104 IT, 0 fail), no Testcontainers; pushed and opened PR #2.
+- 2026-11-15 review round 1: READY FOR HUMAN MERGE (0 blocker, 0 major, 3 minor, 3 nit) https://github.com/vinods21/agentic-weather-app/pull/2#pullrequestreview-5909139300. Loop stopped; round 2 not needed.
