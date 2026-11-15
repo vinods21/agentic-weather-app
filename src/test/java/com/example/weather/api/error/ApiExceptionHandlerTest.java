@@ -40,6 +40,7 @@ class ApiExceptionHandlerTest {
         BeanPropertyBindingResult result = new BeanPropertyBindingResult(new Object(), "query");
         result.addError(new FieldError("query", "units", "kelvin", false, new String[] {"Pattern"}, null,
                 "must be one of: metric, imperial"));
+        // A binding failure (any field) gets the generic fixed message, never Spring's text.
         result.addError(new FieldError("query", "days", "abc", true, new String[] {"typeMismatch"}, null,
                 "Failed to convert value of type 'java.lang.String' to required type 'java.lang.Integer'"));
         result.addError(new FieldError("query", "city", null, false, new String[] {"NotBlank"}, null,
@@ -59,7 +60,7 @@ class ApiExceptionHandlerTest {
                 .containsEntry("requestId", "ui-abc-123");
         assertThat(body.getProperties().get("errors")).isEqualTo(List.of(
                 new FieldErrorDto("city", "must not be blank"),
-                new FieldErrorDto("days", "must be an integer between 1 and 7"),
+                new FieldErrorDto("days", "has an invalid value"),
                 new FieldErrorDto("units", "must be one of: metric, imperial")));
     }
 

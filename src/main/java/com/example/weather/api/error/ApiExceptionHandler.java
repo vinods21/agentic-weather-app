@@ -36,7 +36,6 @@ public class ApiExceptionHandler {
     static final String NOT_FOUND_DETAIL = "No endpoint exists at this path.";
     static final String UPSTREAM_DETAIL = "The weather provider is temporarily unavailable.";
     static final String INTERNAL_DETAIL = "An unexpected error occurred.";
-    static final String DAYS_TYPE_MISMATCH = "must be an integer between 1 and 7";
     static final String INVALID_VALUE = "has an invalid value";
 
     private static final Comparator<FieldErrorDto> ERROR_ORDER =
@@ -116,7 +115,8 @@ public class ApiExceptionHandler {
         String message;
         if (error.isBindingFailure()) {
             // Spring's default type-mismatch text contains class names; never use it or echo the value.
-            message = "days".equals(error.getField()) ? DAYS_TYPE_MISMATCH : INVALID_VALUE;
+            // (days is bound as a String and checked by @DaysParam, so it never gets here.)
+            message = INVALID_VALUE;
         } else {
             message = error.getDefaultMessage() == null ? INVALID_VALUE : error.getDefaultMessage();
         }
