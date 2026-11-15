@@ -9,6 +9,7 @@ Branch: feature/ui-backend-api-contracts · PR: (none yet)
 - 2026-11-15: Docker now available; ran scripts/test-env.sh up.
 - 2026-11-15 architect: design.md written; ADRs 0002 (hand-written OpenAPI), 0003 (API conventions), 0004 (provider port + stub); overview.md updated; no new dependencies, no migrations
 - 2026-11-15 developer: implemented design steps 1-7 (domain + stub provider, WeatherService, v1 controller/DTOs, Problem Details advice, request-id filter, CORS, OpenAPI doc + controller) with unit tests; `./gradlew build` and `scripts/test-env.sh it` green; AC-mapped ITs (design step 8 and the per-step ITs) left to the tester.
+- 2026-11-15 tester: 12 AC-mapped IT classes + 3 unit test classes added; unit 106/0, integration 92 passed/0 failed/1 skipped; all AC-1..AC-23 PASS; defect D-1 (days type mismatch hides other validation errors) reported in test-report.md, reproducer @Disabled
 
 ## Deviations from design
 - `WeatherProvider#forecast` returns `weather.LocationForecast(Location location, List<DailyForecast> days)` instead of `List<DailyForecast>`: the forecast response needs the location, and the design's signature gave no way to obtain it.
