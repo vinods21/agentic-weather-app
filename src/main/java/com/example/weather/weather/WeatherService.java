@@ -25,11 +25,12 @@ public class WeatherService {
     }
 
     public CurrentWeather current(String city, Units units) {
-        CurrentConditions c = provider.current(city);
-        Instant observedAt = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS);
+        Instant now = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS);
+        ObservedConditions observed = provider.currentAt(city, now);
+        CurrentConditions c = observed.conditions();
         return new CurrentWeather(
                 c.location(),
-                observedAt,
+                observed.observedAt(),
                 units,
                 temperature(c.temperature(), units),
                 temperature(c.feelsLike(), units),
