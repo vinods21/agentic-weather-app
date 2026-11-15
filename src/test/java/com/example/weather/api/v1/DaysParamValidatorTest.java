@@ -55,6 +55,15 @@ class DaysParamValidatorTest {
     }
 
     @Test
+    @DisplayName("AC-7 (unit): both days messages state the contract range 1..7")
+    void ac7_messagesMatchContractRange() {
+        assertThat(DaysParam.MIN).isEqualTo(1);
+        assertThat(DaysParam.MAX).isEqualTo(7);
+        assertThat(DaysParam.NOT_AN_INTEGER).isEqualTo("must be an integer between 1 and 7");
+        assertThat(DaysParam.OUT_OF_RANGE).isEqualTo("must be between 1 and 7");
+    }
+
+    @Test
     @DisplayName("AC-6 (unit): absent or empty days is valid and resolves to the default 5")
     void ac6_absentOrEmptyIsDefault() {
         assertThat(messages(null)).isEmpty();

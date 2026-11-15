@@ -10,7 +10,8 @@ import java.lang.annotation.Target;
 
 /**
  * Validates the raw {@code days} query parameter: absent is valid, otherwise it must be a decimal
- * integer between {@link #min()} and {@link #max()}. Binding {@code days} as a {@code String} and
+ * integer between {@link #MIN} and {@link #MAX}. The range is fixed by the v1 contract, so it is
+ * not configurable per use and the messages are built from the same constants. Binding {@code days} as a {@code String} and
  * validating it here (rather than letting Spring convert it to an {@code Integer}) means a
  * non-integer value is reported together with every other violation (AC-8, defect D-1).
  */
@@ -20,17 +21,19 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface DaysParam {
 
+    /** Smallest allowed number of days (inclusive). */
+    int MIN = 1;
+
+    /** Largest allowed number of days (inclusive). */
+    int MAX = 7;
+
     /** Message for a value that is not an integer (fixed text, no class names, no echoed input). */
-    String NOT_AN_INTEGER = "must be an integer between 1 and 7";
+    String NOT_AN_INTEGER = "must be an integer between " + MIN + " and " + MAX;
 
     /** Message for an integer outside the allowed range. */
-    String OUT_OF_RANGE = "must be between 1 and 7";
+    String OUT_OF_RANGE = "must be between " + MIN + " and " + MAX;
 
     String message() default OUT_OF_RANGE;
-
-    int min() default 1;
-
-    int max() default 7;
 
     Class<?>[] groups() default {};
 
