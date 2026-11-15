@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -58,8 +57,6 @@ class ValidationIT extends ApiIntegrationTestBase {
     }
 
     @Test
-    @Disabled("Defect D-1 (docs/sdlc/ui-backend-api-contracts/test-report.md): when days fails type conversion, "
-            + "the city/units violations are dropped and errors contains only days. Re-enable once fixed.")
     @DisplayName("Edge: days=abc combined with a missing city still reports both fields")
     void edge_typeMismatchCombinedWithOtherViolations() {
         ResponseEntity<String> res = get("/api/v1/weather/forecast?units=kelvin&days=abc");
