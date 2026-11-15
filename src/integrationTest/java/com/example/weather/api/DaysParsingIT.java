@@ -15,7 +15,7 @@ import org.springframework.http.ResponseEntity;
 class DaysParsingIT extends ApiIntegrationTestBase {
 
     @ParameterizedTest(name = "days={0}")
-    @ValueSource(strings = {"0x3", "1%202", "%233", "3.0", "1e0", "99999999999"})
+    @ValueSource(strings = {"0x3", "1%202", "%233", "3.0", "1e0", "99999999999", "%D9%A3", "%EF%BC%93"})
     @DisplayName("AC-7 (D-1 edge): non-decimal days values give 400 with only the fixed non-integer message")
     void ac7_nonDecimalDaysRejected(String days) {
         ResponseEntity<String> res = get("/api/v1/weather/forecast?city=London&days=" + days);

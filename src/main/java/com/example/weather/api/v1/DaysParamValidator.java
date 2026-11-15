@@ -3,9 +3,13 @@ package com.example.weather.api.v1;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import java.util.OptionalInt;
+import java.util.regex.Pattern;
 
 /** Validator for {@link DaysParam}. */
 public class DaysParamValidator implements ConstraintValidator<DaysParam, String> {
+
+    /** ASCII decimal digits with an optional sign; {@code Integer.parseInt} alone would accept any Unicode digit. */
+    private static final Pattern DECIMAL = Pattern.compile("[+-]?[0-9]+");
 
     private int min;
     private int max;
@@ -30,10 +34,17 @@ public class DaysParamValidator implements ConstraintValidator<DaysParam, String
         return parsed.getAsInt() >= min && parsed.getAsInt() <= max;
     }
 
-    /** Parses a decimal integer, ignoring surrounding whitespace; empty if it is not one. */
+    /**
+     * Parses {@code [+-]?[0-9]+} (ASCII digits only) after stripping surrounding whitespace; empty if
+     * the value does not match or does not fit in an {@code int}.
+     */
     static OptionalInt parse(String value) {
+        String stripped = value.strip();
+        if (!DECIMAL.matcher(stripped).matches()) {
+            return OptionalInt.empty();
+        }
         try {
-            return OptionalInt.of(Integer.parseInt(value.strip()));
+            return OptionalInt.of(Integer.parseInt(stripped));
         } catch (NumberFormatException e) {
             return OptionalInt.empty();
         }

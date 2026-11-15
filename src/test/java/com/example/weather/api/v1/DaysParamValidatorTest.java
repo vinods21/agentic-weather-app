@@ -32,8 +32,9 @@ class DaysParamValidatorTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"#3", "0X3", "3L", "3.0", "1e0", "3,4", "--3", "+-3", " 3", "2147483648", "-2147483649"})
-    @DisplayName("AC-7 (unit, D-1 edge): other non-decimal forms are rejected with the non-integer message")
+    @ValueSource(strings = {"#3", "0X3", "3L", "3.0", "1e0", "3,4", "--3", "+-3", " 3", "2147483648", "-2147483649",
+            "٣", "３", "१"})
+    @DisplayName("AC-7 (unit, D-1 edge): other non-decimal forms (incl. non-ASCII digits) are rejected with the non-integer message")
     void ac7_nonDecimalFormsRejected(String days) {
         assertThat(messages(days)).containsExactly(DaysParam.NOT_AN_INTEGER);
     }
