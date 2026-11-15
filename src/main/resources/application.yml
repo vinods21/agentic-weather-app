@@ -21,6 +21,10 @@ spring:
 server:
   port: ${APP_PORT:8080}
 
+logging:
+  pattern:
+    level: "%5p [requestId=%X{requestId:-}]"   # every log line carries the MDC request id
+
 management:
   endpoints:
     web:
