@@ -47,8 +47,8 @@ weather:
     # Saved favourites (ADR 0008): maximum favourites per X-Client-Id, 1..100.
     max-per-client: ${WEATHER_FAVOURITES_MAX_PER_CLIENT:20}
     weather:
-      # GET /api/v1/favourites/weather (ADR 0013): upstream calls in flight per request (1..20)
-      # and the overall time budget of a request (1s..30s).
+      # GET /api/v1/favourites/weather and /api/v1/favourites/forecast (ADR 0013, 0016): upstream calls
+      # in flight per request (1..20) and the overall time budget of a request (1s..30s).
       max-concurrency: ${WEATHER_FAVOURITES_WEATHER_MAX_CONCURRENCY:4}
       timeout: ${WEATHER_FAVOURITES_WEATHER_TIMEOUT:5s}
   cache:
