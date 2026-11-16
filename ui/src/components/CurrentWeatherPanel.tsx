@@ -1,14 +1,19 @@
 import type { CurrentWeather } from '../api/types';
 import { formatDirection, formatObservedAt, formatPercent, formatTemperature, formatWind } from '../format/format';
 
-export function CurrentWeatherDetails({ weather }: { weather: CurrentWeather }) {
+/** compact (dashboard cards) leaves out feels-like. */
+export function CurrentWeatherDetails({ weather, compact = false }: { weather: CurrentWeather; compact?: boolean }) {
   const { units } = weather;
   return (
     <dl>
       <dt>Temperature</dt>
       <dd>{formatTemperature(weather.temperature, units)}</dd>
-      <dt>Feels like</dt>
-      <dd>{formatTemperature(weather.feelsLike, units)}</dd>
+      {!compact && (
+        <>
+          <dt>Feels like</dt>
+          <dd>{formatTemperature(weather.feelsLike, units)}</dd>
+        </>
+      )}
       <dt>Condition</dt>
       <dd>{weather.condition.description}</dd>
       <dt>Humidity</dt>
