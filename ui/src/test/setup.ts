@@ -1,7 +1,12 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, beforeEach } from 'vitest';
 import { drainUnmocked, installNetworkGuard } from './fetchMock';
+
+// findBy*/waitFor default to 1 s. With all component test files running in parallel, the first
+// render in a worker can take longer than that on a loaded machine (seen on Windows), which made
+// the first test of a file fail intermittently. 5 s keeps failures fast but not flaky.
+configure({ asyncUtilTimeout: 5000 });
 
 beforeEach(() => {
   installNetworkGuard();
