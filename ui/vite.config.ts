@@ -15,5 +15,7 @@ export default defineConfig({
     env: { TZ: 'America/Los_Angeles' },
     restoreMocks: true,
     unstubGlobals: true,
+    // Process CSS so theme tests can read styles.css?raw (Vitest empties CSS by default).
+    css: { include: [/src\/styles\.css/] },
   },
 });

@@ -30,3 +30,4 @@ Peers: vitest 4.1.12 `vite ^6||^7||^8`, plugin-react 5.2.0 `vite ^4.2..^8`, RTL 
 ## Deviations from design
 - `@testing-library/jest-dom` is 6.9.1, not the newest 6.x before the cutoff (6.10.0, 2026-07-20): npm marks 6.10.0 deprecated ("Incorrect minor release with breaking changes ... Use 6.9.1 for the 6.x line"). This took a second `npm --prefix ui install --before=2026-11-02` run after editing the pin.
 - `src/viteConfig.test.ts` runs in the Vitest `node` environment (`// @vitest-environment node` docblock): importing `vite.config.ts` loads esbuild, which refuses to load under jsdom (TextEncoder/Uint8Array realm check).
+- `vite.config.ts` adds `test.css: { include: [/src\/styles\.css/] }`: Vitest empties CSS modules by default, so the theme tests' `styles.css?raw` import was an empty string. Only test-time CSS handling changes; the build is unaffected.
