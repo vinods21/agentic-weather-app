@@ -2,12 +2,13 @@
 Request: Start the UI: a React + Vite + TypeScript single-page app in ui/, run separately (Vite dev server on localhost:5173) and calling the /api/v1 backend over CORS. Human chose UI before the backend follow-up fix/ PR.
 Branch: feature/web-ui · PR: #9 https://github.com/vinods21/agentic-weather-app/pull/9
 ## Phases
-- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [ ] review round 1  - [ ] review round 2
+- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [x] review round 1  - [ ] review round 2
 ## Log
 - 2026-11-16 pm: requirements.md written (AC-1..AC-38)
 - 2026-11-16 architect: design.md written; ADR 0017 (UI stack/hosting), ADR 0018 (UI testing, hand-written types + spec drift test); overview.md UI section added; open points R-1..R-10 in design.md
 - 2026-11-16 human decisions: R-1 Search button stays enabled during a search (AC-17 reworded; latest-wins guard covers races). R-3 agents mark the visual/console/320px smoke-checklist items NEEDS HUMAN in test-report.md; the PR asks the human to complete them. R-6 (npm commands in CLAUDE.md, /sdlc and the settings allow-list) left as a separate human chore.
 - 2026-11-16 orchestrator: re-checked ./gradlew build, scripts/test-env.sh it (517 IT, 0 fail), no Testcontainers; npm --prefix ui test (215/215), npm --prefix ui run build (68.6 KB gzip), only ui/** and docs changed, no node_modules/dist tracked, no e2e/mock-server deps, no dangerouslySetInnerHTML; pushed and opened PR #9.
+- 2026-11-16 review round 1: READY FOR HUMAN MERGE (0 blocker, 0 major, 3 minor, 1 nit) https://github.com/vinods21/agentic-weather-app/pull/9#pullrequestreview-5924535106. Loop stopped; round 2 not needed. Manual checklist still NEEDS HUMAN.
 - 2026-11-16 developer: ui/ implemented per design steps 1-12 (10 commits); `npm --prefix ui test` 146/146 pass (typecheck included), `npm --prefix ui run build` OK (JS 68.60 KB gzip), `./gradlew build` green; no file outside ui/ and docs/sdlc/web-ui/ changed; no @types/node needed (vite.config.ts stays in tsconfig include, R-4 fallback unused)
 - 2026-11-16 tester: +69 AC-mapped Vitest tests in 6 files (215/215 pass, 3 consecutive runs); test setup asyncUtilTimeout 5 s for a parallel-load flake; AC-37 mutation proof done (not committed); build OK (JS 68.60 KB gzip); ./gradlew build 750/750, scripts/test-env.sh it 517/517; no product bugs; smoke checklist (AC-36, AC-38, manual parts of AC-1/2/32/34) marked NEEDS HUMAN in test-report.md
 ## Dependency versions
