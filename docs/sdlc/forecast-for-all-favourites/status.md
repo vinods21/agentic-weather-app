@@ -1,8 +1,8 @@
 # forecast-for-all-favourites: SDLC status
 Request: Forecast for all favourites: the same per-favourite fan-out as weather-for-all-favourites (#7), but for multi-day forecasts.
-Branch: feature/forecast-for-all-favourites · PR: (none yet)
+Branch: feature/forecast-for-all-favourites · PR: #8 https://github.com/vinods21/agentic-weather-app/pull/8
 ## Phases
-- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [ ] pr  - [ ] review round 1  - [ ] review round 2
+- [x] pm  - [x] architect  - [x] developer  - [x] tester  - [x] pr  - [ ] review round 1  - [ ] review round 2
 ## Log
 - 2026-11-15 pm: requirements.md written (AC-1..AC-27)
 - 2026-11-15 architect: design.md written; ADR 0015 (forecastAtLocation, amends 0012) and ADR 0016 (shared fan-out bean/settings/per-item error schema, refines 0013); overview updated
@@ -13,3 +13,4 @@ Branch: feature/forecast-for-all-favourites · PR: (none yet)
 - `FavouriteForecastServiceTest` uses a Mockito-mocked `FavouriteRepository` (as `FavouriteWeatherServiceTest` does) instead of a hand-written in-memory fake; behaviour covered is the same.
 - `application.yml`: the existing comment under `weather.favourites.weather` was reworded in place (it sits below the `weather:` key, not above it); keys and placeholders are unchanged.
 - Design steps 6-8 (`FakeOpenMeteo.dailyFor`, `InFlightResponder.daily`, and all AC-mapped ITs) were not done by the developer: per the task, additive changes to shared IT support and the AC ITs are the tester's.
+- 2026-11-16 orchestrator: re-checked build + it (517 IT, 0 fail), no Testcontainers, no build-file/migration/.env.example/compose changes, no new leftover schemas or it:* keys; pushed and opened PR #8.
