@@ -268,18 +268,25 @@ public final class FakeOpenMeteo {
                         : Response.ok("{\"generationtime_ms\":0.2}");
             }
             case CURRENT -> Response.ok(CURRENT_AC6);
-            case DAILY -> {
-                try {
-                    LocalDate start = LocalDate.parse(request.param("start_date"));
-                    LocalDate end = LocalDate.parse(request.param("end_date"));
-                    int days = (int) (end.toEpochDay() - start.toEpochDay()) + 1;
-                    yield days < 1 ? Response.status(400, "{\"error\":true,\"reason\":\"range\"}")
-                            : Response.ok(json(daily(start, days)));
-                } catch (AssertionError | DateTimeParseException e) {
-                    yield Response.status(400, "{\"error\":true,\"reason\":\"dates\"}");
-                }
-            }
+            case DAILY -> dailyFor(request);
         };
+    }
+
+    /**
+     * The default {@code DAILY} response for {@code request}: a body generated from its
+     * {@code start_date}/{@code end_date}, or {@code 400} when they are missing or out of range.
+     * Public so that custom responders (e.g. {@link InFlightResponder#daily}) can reuse it.
+     */
+    public static Response dailyFor(RecordedRequest request) {
+        try {
+            LocalDate start = LocalDate.parse(request.param("start_date"));
+            LocalDate end = LocalDate.parse(request.param("end_date"));
+            int days = (int) (end.toEpochDay() - start.toEpochDay()) + 1;
+            return days < 1 ? Response.status(400, "{\"error\":true,\"reason\":\"range\"}")
+                    : Response.ok(json(daily(start, days)));
+        } catch (AssertionError | DateTimeParseException e) {
+            return Response.status(400, "{\"error\":true,\"reason\":\"dates\"}");
+        }
     }
 
     private static void send(HttpExchange exchange, Response response) throws IOException {

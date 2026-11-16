@@ -54,6 +54,15 @@ public final class InFlightResponder implements Function<RecordedRequest, Respon
         return new InFlightResponder(r -> d);
     }
 
+    /**
+     * A responder for {@code fake.stub(Route.DAILY, ...)}: the per-request {@code delay}, and the
+     * fake's default {@code DAILY} body ({@link FakeOpenMeteo#dailyFor}) instead of the
+     * {@code CURRENT_AC6} default.
+     */
+    public static InFlightResponder daily(Function<RecordedRequest, Duration> delay) {
+        return new InFlightResponder(delay).respond(FakeOpenMeteo::dailyFor);
+    }
+
     /** The first {@code n} arrivals wait for each other (capped at 5 s) before their delay. */
     public InFlightResponder gate(int n) {
         this.gate = new CountDownLatch(n);

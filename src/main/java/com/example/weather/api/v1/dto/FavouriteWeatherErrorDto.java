@@ -5,7 +5,8 @@ import com.example.weather.api.error.ErrorCode;
 import com.example.weather.favourites.FavouriteWeatherFailure;
 
 /**
- * Per-item error of {@code GET /api/v1/favourites/weather} (ADR 0014 §4): an {@link ErrorCode} name
+ * Per-item error of {@code GET /api/v1/favourites/weather} and {@code GET /api/v1/favourites/forecast}
+ * (ADR 0014 §4, ADR 0016 §3): an {@link ErrorCode} name
  * and a fixed detail text that never contains exception messages or user input.
  */
 public record FavouriteWeatherErrorDto(String code, String detail) {

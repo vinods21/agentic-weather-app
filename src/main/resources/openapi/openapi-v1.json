@@ -281,6 +281,35 @@
           "500": { "$ref": "#/components/responses/InternalError" }
         }
       }
+    },
+    "/api/v1/favourites/forecast": {
+      "get": {
+        "operationId": "listFavouritesForecast",
+        "summary": "Daily forecast for every favourite of the client",
+        "description": "Returns one item per favourite of the client, in list order (empty if there are none). The forecast is looked up by each favourite's stored location (no re-geocoding of city), at most one upstream call per favourite and none when cached; the same units and days rules as /api/v1/weather/forecast apply to every item, and every item's forecast starts at today's UTC date. Each item has exactly one of forecast or error. A provider failure for an item, or an item that does not finish within the request's time budget, is reported in that item's error and the response is still 200, even when every item failed. The time budget and concurrency limit are shared with /api/v1/favourites/weather (weather.favourites.weather.*). Unknown query parameters are ignored. Clients must tolerate unknown error.code values (treat them as no data for the item). PATCH and DELETE on this path hit /api/v1/favourites/{id} and are 400 (field id).",
+        "tags": ["favourites"],
+        "parameters": [
+          { "$ref": "#/components/parameters/ClientId" },
+          { "$ref": "#/components/parameters/Units" },
+          { "$ref": "#/components/parameters/Days" },
+          { "$ref": "#/components/parameters/RequestId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The client's favourites in list order, each with its daily forecast or a per-item error.",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FavouriteForecastList" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
     }
   },
   "components": {
@@ -326,7 +355,7 @@
         "name": "id",
         "in": "path",
         "required": true,
-        "description": "Favourite id (UUID). A value that is not a UUID is 400 VALIDATION_FAILED (field id); note that \"order\" and \"weather\" are not ids, so PATCH and DELETE on /api/v1/favourites/order and /api/v1/favourites/weather, and GET on /api/v1/favourites/order, are 400. Another client's id is 404 NOT_FOUND, the same as a missing one.",
+        "description": "Favourite id (UUID). A value that is not a UUID is 400 VALIDATION_FAILED (field id); note that \"order\", \"weather\" and \"forecast\" are not ids, so PATCH and DELETE on /api/v1/favourites/order, /api/v1/favourites/weather and /api/v1/favourites/forecast, and GET on /api/v1/favourites/order, are 400. Another client's id is 404 NOT_FOUND, the same as a missing one.",
         "schema": { "type": "string", "format": "uuid" }
       }
     },
@@ -536,6 +565,31 @@
             "description": "UPSTREAM_UNAVAILABLE: the provider failed or the item did not finish within the request's time budget. LOCATION_NOT_FOUND: the provider has no data for the stored location. The enum may grow; clients must tolerate unknown values."
           },
           "detail": { "type": "string", "description": "Fixed human-readable text for the code.", "example": "The weather provider is temporarily unavailable." }
+        }
+      },
+      "FavouriteForecastList": {
+        "type": "object",
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "description": "One item per favourite of the client, in list order.",
+            "items": { "$ref": "#/components/schemas/FavouriteForecast" }
+          }
+        }
+      },
+      "FavouriteForecast": {
+        "type": "object",
+        "description": "A favourite with its daily forecast. Exactly one of forecast or error is present.",
+        "required": ["id", "city", "location"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "example": "0b6f2c9e-3a1d-4c8e-9f12-5d7a8b9c0e1f" },
+          "city": { "type": "string", "minLength": 1, "maxLength": 100, "description": "The city as sent on create (stripped). Pass it to /api/v1/weather/* as city.", "example": "london" },
+          "label": { "type": "string", "minLength": 1, "maxLength": 50, "description": "Optional short label; omitted when not set.", "example": "Home" },
+          "location": { "$ref": "#/components/schemas/Location" },
+          "forecast": { "$ref": "#/components/schemas/Forecast" },
+          "error": { "$ref": "#/components/schemas/FavouriteWeatherError" }
         }
       },
       "CreateFavouriteRequest": {

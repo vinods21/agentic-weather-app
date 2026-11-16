@@ -14,6 +14,9 @@ UI / client ──HTTP /api/v1──▶ app (Spring Boot :8080)
                                │             FavouriteWeatherService (GET /favourites/weather): list → BoundedFanOut
                                │               (≤ max-concurrency virtual-thread workers, deadline, MDC) → WeatherService
                                │               → WeatherProvider#currentAtLocation (stored coordinates, no geocoding)
+                               │             FavouriteForecastService (GET /favourites/forecast): list, one UTC start date
+                               │               → the same BoundedFanOut bean and settings → WeatherService#forecastAt
+                               │               → WeatherProvider#forecastAtLocation (stored coordinates, no geocoding)
                                ├─ provider   WeatherProvider port (one bean, chosen by weather.provider.type)
                                │               ├─ OpenMeteoWeatherProvider (default) ──HTTPS──▶ Open-Meteo geocoding + forecast
                                │               │     └─ WeatherCache (geocoding / current / forecast entries, fail open)
@@ -26,9 +29,10 @@ access uses `JdbcClient` with explicit `TransactionOperations` boundaries, and n
 held across a provider call. Favourites are scoped by the opaque `X-Client-Id` header (ADR 0009;
 not authentication). Redis caches Open-Meteo results
 (ADR 0007). Within the TTLs, a repeated request makes 0 upstream calls, and a cache miss makes
-at most 2 (ADR 0006). The exception is `GET /api/v1/favourites/weather`, which makes at most one
-`CURRENT` call per favourite, at most `max-concurrency` of them in parallel, within an overall
-deadline (ADR 0012, 0013). Redis is optional at runtime: when it is down or holds bad data, the
+at most 2 (ADR 0006). The exceptions are the favourites aggregate endpoints:
+`GET /api/v1/favourites/weather` makes at most one `CURRENT` call per favourite and
+`GET /api/v1/favourites/forecast` at most one `DAILY` call per favourite, at most
+`max-concurrency` of them in parallel, within an overall deadline (ADR 0012, 0013, 0015, 0016). Redis is optional at runtime: when it is down or holds bad data, the
 service behaves as if uncached.
 
 ## Code layout
@@ -37,11 +41,11 @@ service behaves as if uncached.
 | `src/main/java/com/example/weather/` | Application code (`WeatherApplication`) |
 | `.../api/` | Cross-cutting `/api/**` web concerns: `RequestIdFilter`, `RequestIds`, `ClientId` + `ClientIdArgumentResolver` (`X-Client-Id`, ADR 0009), `ApiCorsProperties`, `ApiWebConfig` (CORS, argument resolvers) |
 | `.../api/error/` | `ErrorCode` (closed set), `ProblemFactory`, global `ApiExceptionHandler` (only acts on `/api/`) |
-| `.../api/v1/` | v1 controllers (`WeatherController`, `FavouritesController`, `FavouritesWeatherController`, `OpenApiController`), query and request-body records, `dto/` response records |
+| `.../api/v1/` | v1 controllers (`WeatherController`, `FavouritesController`, `FavouritesWeatherController`, `FavouritesForecastController`, `OpenApiController`), query and request-body records, `dto/` response records |
 | `.../weather/` | Domain types (`Units`, `ConditionCode`, records), `WeatherService`, `UnitConverter`, `CityNames`, `Clock` bean |
-| `.../favourites/` | `FavouriteService`, `FavouriteRepository` + `JdbcFavouriteRepository`, `FavouritesProperties`, `Favourite`, domain exceptions; `FavouriteWeatherService`, `FavouriteWeather`, `FavouriteWeatherFailure`, `FavouritesWeatherProperties`, `FavouriteWeatherConfiguration` (the `BoundedFanOut` bean) |
+| `.../favourites/` | `FavouriteService`, `FavouriteRepository` + `JdbcFavouriteRepository`, `FavouritesProperties`, `Favourite`, domain exceptions; `FavouriteWeatherService`, `FavouriteWeather`, `FavouriteForecastService`, `FavouriteForecast`, `FavouriteWeatherFailure` (per-item failures of both aggregate endpoints), `FavouritesWeatherProperties` (shared fan-out settings), `FavouriteWeatherConfiguration` (the one shared `BoundedFanOut` bean) |
 | `.../concurrent/` | `BoundedFanOut`: bounded parallel fan-out with a deadline, MDC propagation and cancellation (ADR 0013) |
-| `.../provider/` | `WeatherProvider` port (`current`, `currentAt`, `currentAtLocation`, `forecast`, `locate`), its exceptions, `WeatherProviderProperties`, `WeatherProviderConfiguration` (selects the one bean), and `stub/StubWeatherProvider` |
+| `.../provider/` | `WeatherProvider` port (`current`, `currentAt`, `currentAtLocation`, `forecast`, `forecastAtLocation`, `locate`), its exceptions, `WeatherProviderProperties`, `WeatherProviderConfiguration` (selects the one bean), and `stub/StubWeatherProvider` |
 | `.../provider/openmeteo/` | Open-Meteo adapter: `OpenMeteoWeatherProvider` (HTTP, sanitised WARN logging), `OpenMeteoMapper`, `OpenMeteoWeatherCodes` |
 | `.../cache/` | `CacheKeys` (namespaced, validated Redis keys under `weather.cache.key-prefix`), `WeatherCacheProperties`, `WeatherCache` + `RedisWeatherCache` (typed entries, fail open), `CacheStore`/`RedisCacheStore` (Redis access), `CacheCodec` (versioned JSON), `WeatherCacheConfiguration` |
 | `src/main/resources/openapi/openapi-v1.json` | Hand-written OpenAPI 3.0.3 contract served at `/api/v1/openapi.json` |
@@ -68,7 +72,8 @@ service behaves as if uncached.
 - Aggregate read endpoints (one upstream lookup per item) report expected per-item failures as
   `error {code, detail}` inside a `200`, even when all items fail. `code` reuses `ErrorCode`
   names, `detail` is fixed text, and bugs and database failures are still a `500` (ADR 0014,
-  amending 0003).
+  amending 0003). The favourites aggregate endpoints share one error schema
+  (`FavouriteWeatherError`) and one set of codes (ADR 0016).
 - Spec-first OpenAPI with drift and conformance tests (ADR 0002).
 
 ## Persistence conventions (ADR 0008)
@@ -100,9 +105,11 @@ Cache configuration (ADR 0007): `WEATHER_CACHE_ENABLED` (true), `WEATHER_CACHE_G
 aggregate includes Boot's Redis indicator.
 
 Favourites configuration (ADR 0008): `WEATHER_FAVOURITES_MAX_PER_CLIENT` (20, range 1..100;
-startup fails outside it). Weather for all favourites (ADR 0013):
+startup fails outside it). Favourites aggregate endpoints (ADR 0013, 0016):
 `WEATHER_FAVOURITES_WEATHER_MAX_CONCURRENCY` (4, range 1..20) and
 `WEATHER_FAVOURITES_WEATHER_TIMEOUT` (5s, range 1s..30s). Startup fails outside these ranges.
+Despite the name, both settings apply per request to `/favourites/weather` **and**
+`/favourites/forecast`.
 
 ## Concurrency conventions (ADR 0013)
 - Fan-outs go through `concurrent.BoundedFanOut`. Per call it starts
@@ -116,6 +123,8 @@ startup fails outside it). Weather for all favourites (ADR 0013):
 - Expected failures are handled inside the task. Any other exception fails fast and is rethrown
   on the caller thread.
 - No `Executor`/`ExecutorService` bean is registered, so Boot's `applicationTaskExecutor` stays.
+- There is one `BoundedFanOut` bean, shared by every favourites aggregate endpoint. Its state is
+  per call (ADR 0016).
 
 ## Caching conventions (ADR 0007)
 - Explicit `WeatherCache` component called by the adapter, not `@Cacheable`. Values are
@@ -145,6 +154,7 @@ startup fails outside it). Weather for all favourites (ADR 0013):
 | Redis weather caching | `cache`, `provider.openmeteo`, `provider` (`WeatherProvider#currentAt`), `weather` (`ObservedConditions`) | 0007 | [docs/sdlc/redis-weather-caching/](../sdlc/redis-weather-caching/) |
 | Saved favourite locations | `favourites`, `api` (`ClientId`, CORS), `api.v1` (`FavouritesController`), `api.error`, `provider` (`WeatherProvider#locate`), `weather` (`CityNames`), Flyway `V2` | 0008, 0009, 0010, 0011 | [docs/sdlc/saved-favourite-locations/](../sdlc/saved-favourite-locations/) |
 | Weather for all favourites | `favourites` (`FavouriteWeatherService`), `concurrent` (`BoundedFanOut`), `api.v1` (`FavouritesWeatherController`), `provider` (`WeatherProvider#currentAtLocation`), `weather` (`WeatherService#currentAt(Location, …)`); no migration | 0012, 0013, 0014 | [docs/sdlc/weather-for-all-favourites/](../sdlc/weather-for-all-favourites/) |
+| Forecast for all favourites | `favourites` (`FavouriteForecastService`, shared `BoundedFanOut` bean), `api.v1` (`FavouritesForecastController`), `provider` (`WeatherProvider#forecastAtLocation`), `weather` (`WeatherService#forecastAt`); no migration, no new config | 0015, 0016 | [docs/sdlc/forecast-for-all-favourites/](../sdlc/forecast-for-all-favourites/) |
 
 ## ADRs
 - [0001](../adr/0001-integration-tests-use-docker-compose.md) Integration tests use the Docker Compose services, not Testcontainers
@@ -161,3 +171,5 @@ startup fails outside it). Weather for all favourites (ADR 0013):
 - [0012](../adr/0012-weather-provider-current-at-stored-location.md) WeatherProvider gains a current-conditions lookup by stored location, no geocoding (amends 0011)
 - [0013](../adr/0013-bounded-parallel-fan-out-with-deadline.md) Bounded parallel fan-out of upstream calls: per-request virtual-thread workers, monotonic deadline, MDC propagation, cancellation
 - [0014](../adr/0014-per-item-errors-in-aggregate-read-responses.md) Aggregate read endpoints report per-item upstream failures inside a 200 (amends 0003)
+- [0015](../adr/0015-weather-provider-forecast-at-stored-location.md) WeatherProvider gains a daily-forecast lookup by stored location, no geocoding (amends 0012)
+- [0016](../adr/0016-favourites-aggregate-endpoints-share-fan-out-settings-and-item-errors.md) Favourites aggregate endpoints share one fan-out bean, the `weather.favourites.weather.*` settings and the per-item error schema (refines 0013)
