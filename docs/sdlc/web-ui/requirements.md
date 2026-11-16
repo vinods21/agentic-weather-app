@@ -123,7 +123,8 @@ The first version must be shippable in one PR:
   error), when both complete, then the current weather is shown and the forecast area shows its
   own error message with a Retry action for the forecast only.
 - **AC-17**: Given a search is in flight, then a loading indicator with `role="status"` is visible
-  and the Search button is disabled. Both return to normal when the requests settle.
+  and the Search button stays enabled, so a new search can start at any time (human decision on
+  design R-1, 2026-11-16). The indicator disappears when the latest search's requests settle.
 
   Given the user searches `Paris` and then `Tokyo` before `Paris` responds, when `Paris` responds
   last, then only the `Tokyo` result is displayed.
