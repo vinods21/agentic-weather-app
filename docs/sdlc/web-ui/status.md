@@ -7,6 +7,7 @@ Branch: feature/web-ui · PR: (none yet)
 - 2026-11-16 pm: requirements.md written (AC-1..AC-38)
 - 2026-11-16 architect: design.md written; ADR 0017 (UI stack/hosting), ADR 0018 (UI testing, hand-written types + spec drift test); overview.md UI section added; open points R-1..R-10 in design.md
 - 2026-11-16 human decisions: R-1 Search button stays enabled during a search (AC-17 reworded; latest-wins guard covers races). R-3 agents mark the visual/console/320px smoke-checklist items NEEDS HUMAN in test-report.md; the PR asks the human to complete them. R-6 (npm commands in CLAUDE.md, /sdlc and the settings allow-list) left as a separate human chore.
+- 2026-11-16 developer: ui/ implemented per design steps 1-12 (10 commits); `npm --prefix ui test` 146/146 pass (typecheck included), `npm --prefix ui run build` OK (JS 68.60 KB gzip), `./gradlew build` green; no file outside ui/ and docs/sdlc/web-ui/ changed; no @types/node needed (vite.config.ts stays in tsconfig include, R-4 fallback unused)
 ## Dependency versions
 Cutoff 2026-11-02 (design "Version selection"); installed with `npm --prefix ui install --before=2026-11-02`. Newest release in the design's major line published before the cutoff, peer ranges checked.
 
@@ -31,3 +32,8 @@ Peers: vitest 4.1.12 `vite ^6||^7||^8`, plugin-react 5.2.0 `vite ^4.2..^8`, RTL 
 - `@testing-library/jest-dom` is 6.9.1, not the newest 6.x before the cutoff (6.10.0, 2026-07-20): npm marks 6.10.0 deprecated ("Incorrect minor release with breaking changes ... Use 6.9.1 for the 6.x line"). This took a second `npm --prefix ui install --before=2026-11-02` run after editing the pin.
 - `src/viteConfig.test.ts` runs in the Vitest `node` environment (`// @vitest-environment node` docblock): importing `vite.config.ts` loads esbuild, which refuses to load under jsdom (TextEncoder/Uint8Array realm check).
 - `vite.config.ts` adds `test.css: { include: [/src\/styles\.css/] }`: Vitest empties CSS modules by default, so the theme tests' `styles.css?raw` import was an empty string. Only test-time CSS handling changes; the build is unaffected.
+- `ApiFailure` `{kind: 'network'}` carries `baseUrl`, so `describeApiError(err, {city?, knownFields?})` can build the AC-19 text without the base URL in its context.
+- Small additions not listed in the design's layout: `components/ViewHeading.tsx` (the focusable `<h1>`), `test/spec.ts` (shared spec import for the contract and message tests), `test/fakeStorage.ts`, and a `noContent()` helper in `test/fetchMock.ts`. `CurrentWeatherDetails` has a `compact` mode (no feels-like) for the dashboard cards.
+- Favourites: after a successful reorder, focus goes back to the moved item's Move button (or its other Move button if that one is now disabled), because the buttons are disabled while the request is pending and would otherwise drop focus. Rename/Delete buttons keep the plain names "Rename"/"Delete" as in the design; only the Move buttons include the name (AC-26).
+- Dashboard: if both aggregates fail with the same message (e.g. backend down), it is shown once; the single dashboard-level Retry re-sends only the failed request(s).
+- `VALIDATION_FAILED` with no usable `errors` entries shows "Some values were not accepted:" with no list (the design doesn't cover this case).
