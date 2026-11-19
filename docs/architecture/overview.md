@@ -3,10 +3,11 @@
 Maintained by the `architect` agent: update it whenever a feature changes the structure.
 
 ## System
-agentic-weather-app is a Spring Boot 3 (Java 21) HTTP service.
+agentic-weather-app is a Spring Boot 3 (Java 21) HTTP service with a separately built and hosted
+React single-page UI in `ui/` (ADR 0017).
 
 ```
-UI / client ──HTTP /api/v1──▶ app (Spring Boot :8080)
+ui/ SPA (React + Vite; dev :5173, static dist/) ──fetch, CORS, /api/v1──▶ app (Spring Boot :8080)
                                ├─ api        RequestIdFilter → (ClientIdArgumentResolver) → controllers → ApiExceptionHandler (Problem Details)
                                ├─ weather    WeatherService (units, clock), CityNames (shared city normalisation)
                                ├─ favourites FavouriteService (clock, limit, tx) → FavouriteRepository (JdbcClient)
@@ -52,6 +53,11 @@ service behaves as if uncached.
 | `src/main/resources/db/migration/` | Flyway migrations `V<n>__*.sql` |
 | `src/test/` | Unit tests (no Docker) |
 | `src/integrationTest/` | Integration tests against compose services (profile `it`) |
+| `ui/` | Web UI npm project (ADR 0017, 0018): `package.json` + lock, `vite.config.ts` (also the Vitest config), `tsconfig.json`, `index.html`, `README.md` (setup, CORS backend run, smoke checklist) |
+| `ui/src/api/` | `client.ts` (the only `fetch` caller), `types.ts` (hand-written API types), `contract.ts` (schema/enum manifest checked against `openapi-v1.json`), `messages.ts`, `errors.ts` (Problem → UI message) |
+| `ui/src/views/`, `ui/src/components/` | Search, Favourites, Dashboard views; shared Nav, Footer (Open-Meteo attribution), Loading, ErrorMessage, weather panels |
+| `ui/src/hooks/`, `ui/src/state/`, `ui/src/storage/` | `useHashRoute`, `useRequestSlot` (latest-wins reads); `AppContext` (API client, units); `localStorage` access (`weather.clientId`, `weather.units`) |
+| `ui/src/test/` | Vitest setup (fetch/XHR network guard), `fetchMock`, fixtures |
 
 ## HTTP API conventions (ADR 0003)
 - Path versioning `/api/v1`, additive-only within a version.
@@ -111,6 +117,57 @@ startup fails outside it). Favourites aggregate endpoints (ADR 0013, 0016):
 Despite the name, both settings apply per request to `/favourites/weather` **and**
 `/favourites/forecast`.
 
+## Web UI (`ui/`, ADR 0017, 0018)
+- **Stack**: React 19 + TypeScript (`strict`) + Vite 7. The only runtime dependencies are `react`
+  and `react-dom`. There is no router, state, HTTP-client, CSS or date library, and no
+  `<StrictMode>`. All npm versions are exact, at least two weeks old (`npm install --before=…`),
+  with the lock committed. Node `>=22.12.0` (`engines`, `.nvmrc`, `engine-strict`).
+- **Hosting**: separate from Spring Boot, which still serves no static content (ADR 0003 §6).
+  - `npm run build` writes a static `ui/dist/` (`base: './'`) for any static host.
+  - The dev server and `vite preview` run on `http://localhost:5173` with `strictPort`.
+  - Nothing in Gradle, `src/`, `compose.yaml` or `.env.example` refers to the UI.
+- **Backend access**: base URL from `VITE_API_BASE_URL` (default `http://localhost:8080`,
+  public). Every request goes through `ui/src/api/client.ts`:
+  - `credentials: "omit"`, no `X-Request-Id`;
+  - `X-Client-Id` only on `/api/v1/favourites*` (a `localStorage` UUID, ADR 0009);
+  - a 15 s client timeout;
+  - no automatic retries or polling.
+
+  CORS stays deny-by-default. Developers start the backend with
+  `WEATHER_API_CORS_ALLOWED_ORIGINS=http://localhost:5173` in the process environment, not in
+  `.env`, because `.env` is also exported into `integrationTest`.
+- **Views**: hash routes `#/search` (default), `#/favourites`, `#/dashboard`. Units are global and
+  persisted (`weather.units`). The dashboard uses exactly the two aggregate endpoints (ADR 0014,
+  0016). Every view shows the Open-Meteo attribution footer (ADR 0005).
+- **Errors**: one mapping (`api/errors.ts`) from Problem `code`/status/network failure to fixed
+  English text, with a "Reference: <requestId>" for unexpected errors. API strings are rendered as
+  text only.
+- **Contract**: the API types are hand-written. A `const` manifest is checked against them by the
+  typechecker, and against `src/main/resources/openapi/openapi-v1.json` by a Vitest test that
+  imports the spec in place. **Any change to `openapi-v1.json` must also run the UI tests.**
+- **Testing**: Vitest + jsdom + Testing Library, run with `npm test` (typecheck + tests).
+  - HTTP is mocked only at `fetch`, and a guard fails any test that makes an unmocked network
+    call. There is no backend, Docker or network.
+  - Queries use role, label or text only.
+  - Colour contrast and focus-style rules are unit-tested.
+  - E2E is the manual smoke checklist in `ui/README.md`, run against `./gradlew bootRun` with
+    `WEATHER_PROVIDER=stub`. No Playwright/Cypress, and no Testcontainers (ADR 0001).
+
+### UI commands (run from the repo root; agent shells reset the cwd)
+| Task | Command |
+|------|---------|
+| Install from lock | `npm --prefix ui ci` |
+| Typecheck | `npm --prefix ui run typecheck` |
+| Unit/component tests (+ typecheck) | `npm --prefix ui test` |
+| Production build | `npm --prefix ui run build` |
+| Dev server (:5173) | `npm --prefix ui run dev` |
+| Backend for the UI | `scripts/test-env.sh up`, then `WEATHER_API_CORS_ALLOWED_ORIGINS=http://localhost:5173 WEATHER_PROVIDER=stub ./gradlew bootRun` |
+
+The developer, tester and pre-PR re-check run the first three or four commands in addition to
+`./gradlew build` and `scripts/test-env.sh it` whenever `ui/` or `openapi-v1.json` changes. Adding
+these rows to `CLAUDE.md` and `/sdlc`, and allow-listing them in `.claude/settings.json`, is a
+pending human `chore/` change.
+
 ## Concurrency conventions (ADR 0013)
 - Fan-outs go through `concurrent.BoundedFanOut`. Per call it starts
   `min(limit, n)` virtual-thread workers, which pull items by index. Results come back in input
@@ -155,6 +212,7 @@ Despite the name, both settings apply per request to `/favourites/weather` **and
 | Saved favourite locations | `favourites`, `api` (`ClientId`, CORS), `api.v1` (`FavouritesController`), `api.error`, `provider` (`WeatherProvider#locate`), `weather` (`CityNames`), Flyway `V2` | 0008, 0009, 0010, 0011 | [docs/sdlc/saved-favourite-locations/](../sdlc/saved-favourite-locations/) |
 | Weather for all favourites | `favourites` (`FavouriteWeatherService`), `concurrent` (`BoundedFanOut`), `api.v1` (`FavouritesWeatherController`), `provider` (`WeatherProvider#currentAtLocation`), `weather` (`WeatherService#currentAt(Location, …)`); no migration | 0012, 0013, 0014 | [docs/sdlc/weather-for-all-favourites/](../sdlc/weather-for-all-favourites/) |
 | Forecast for all favourites | `favourites` (`FavouriteForecastService`, shared `BoundedFanOut` bean), `api.v1` (`FavouritesForecastController`), `provider` (`WeatherProvider#forecastAtLocation`), `weather` (`WeatherService#forecastAt`); no migration, no new config | 0015, 0016 | [docs/sdlc/forecast-for-all-favourites/](../sdlc/forecast-for-all-favourites/) |
+| Web UI | `ui/` (React + Vite + TypeScript SPA: `api`, `views`, `components`, `hooks`, `state`, `storage`, `theme`); no backend change | 0017, 0018 | [docs/sdlc/web-ui/](../sdlc/web-ui/) |
 
 ## ADRs
 - [0001](../adr/0001-integration-tests-use-docker-compose.md) Integration tests use the Docker Compose services, not Testcontainers
@@ -173,3 +231,5 @@ Despite the name, both settings apply per request to `/favourites/weather` **and
 - [0014](../adr/0014-per-item-errors-in-aggregate-read-responses.md) Aggregate read endpoints report per-item upstream failures inside a 200 (amends 0003)
 - [0015](../adr/0015-weather-provider-forecast-at-stored-location.md) WeatherProvider gains a daily-forecast lookup by stored location, no geocoding (amends 0012)
 - [0016](../adr/0016-favourites-aggregate-endpoints-share-fan-out-settings-and-item-errors.md) Favourites aggregate endpoints share one fan-out bean, the `weather.favourites.weather.*` settings and the per-item error schema (refines 0013)
+- [0017](../adr/0017-web-ui-react-vite-spa-hosted-separately.md) Web UI: React + Vite + TypeScript SPA in `ui/`, built and hosted separately from the backend
+- [0018](../adr/0018-ui-testing-hand-written-api-types-and-contract-drift-test.md) UI testing: Vitest + jsdom + Testing Library with a fetch-boundary network guard, hand-written API types checked against the OpenAPI spec, manual e2e smoke check
